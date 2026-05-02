@@ -1,0 +1,12 @@
+fastapi==0.111.1
+uvicorn==0.24.0
+aiofiles==23.1.0
+gTTS==2.5.4
+google-api-python-client==2.170.0
+google-auth==2.40.2
+moviepy==1.0.3
+openai==1.82.0
+Pillow==10.4.0
+python-dotenv==1.0.1
+pytrends==4.9.2
+requests==2.32.3

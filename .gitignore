@@ -1,0 +1,12 @@
+**pycache__/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+output/
+tmp/
+node_modules/
+dist/
+client_secret.json

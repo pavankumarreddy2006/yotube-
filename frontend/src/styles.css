@@ -1,0 +1,68 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    @apply bg-ink text-white antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-ink font-body text-slate-100;
+    background-image:
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.18), transparent 32%),
+      radial-gradient(circle at top right, rgba(0, 209, 178, 0.14), transparent 24%),
+      linear-gradient(160deg, #07101d 0%, #0a1321 46%, #08111f 100%);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.55);
+    border-radius: 999px;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-[28px] border border-white/10 bg-panel/80 shadow-soft backdrop-blur-xl;
+  }
+
+  .panel-grid {
+    @apply grid gap-5 lg:gap-6;
+  }
+
+  .section-title {
+    @apply font-display text-lg font-semibold tracking-wide text-white;
+  }
+
+  .subtle {
+    @apply text-sm text-slate-400;
+  }
+
+  .action-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-medium transition duration-200;
+  }
+
+  .action-btn-primary {
+    @apply action-btn bg-accent text-slate-950 shadow-[0_14px_30px_rgba(0,209,178,0.25)] hover:brightness-110;
+  }
+
+  .action-btn-secondary {
+    @apply action-btn bg-white/5 text-white hover:bg-white/10;
+  }
+}
