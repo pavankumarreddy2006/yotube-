@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,10 @@ from utils import get_logger, load_json, setup_logging
 
 
 setup_logging(BASE_DIR / "logs.txt")
+logging.basicConfig(
+    filename=str(BASE_DIR / "logs.txt"),
+    level=logging.INFO,
+)
 logger = get_logger(__name__)
 app = FastAPI(title="Telugu Sports Automation Dashboard")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -53,18 +59,26 @@ async def get_status() -> JSONResponse:
 
 
 @app.get("/run")
-async def get_run() -> JSONResponse:
-    subprocess.Popen(["python", "main.py"], cwd=str(BASE_DIR))
-    return JSONResponse({"status": "started"})
+def run_pipeline() -> dict[str, str]:
+    try:
+        subprocess.Popen([sys.executable, "main.py"], cwd=str(BASE_DIR))
+        return {"status": "pipeline started"}
+    except Exception as e:
+        logging.error("Failed to start pipeline from /run: %s", e)
+        return {"error": str(e)}
 
 
 @app.post("/run")
 async def post_run(run_request: RunRequest) -> JSONResponse:
-    command = ["python", "main.py"]
-    if run_request.mode and run_request.mode != "full":
-        command.append(run_request.mode)
-    subprocess.Popen(command, cwd=str(BASE_DIR))
-    return JSONResponse({"status": "started", "mode": run_request.mode or "full"})
+    try:
+        command = [sys.executable, "main.py"]
+        if run_request.mode and run_request.mode != "full":
+            command.append(run_request.mode)
+        subprocess.Popen(command, cwd=str(BASE_DIR))
+        return JSONResponse({"status": "pipeline started", "mode": run_request.mode or "full"})
+    except Exception as e:
+        logging.error("Failed to start pipeline from POST /run: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/logs")

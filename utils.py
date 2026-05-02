@@ -99,6 +99,11 @@ def _make_json_safe(data: Any) -> Any:
         return str(data)
     if isinstance(data, (str, int, float, bool)) or data is None:
         return data
+    if hasattr(data, "dict"):
+        try:
+            return _make_json_safe(data.dict())
+        except Exception:
+            pass
     if hasattr(data, "__dict__"):
-        return _make_json_safe(vars(data))
+        return _make_json_safe(data.__dict__)
     return {"data": str(data)}

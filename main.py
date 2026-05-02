@@ -19,6 +19,10 @@ from voice import synthesize_voice
 
 
 setup_logging(BASE_DIR / "logs.txt")
+logging.basicConfig(
+    filename=str(BASE_DIR / "logs.txt"),
+    level=logging.INFO,
+)
 logger = get_logger(__name__)
 
 
@@ -137,7 +141,7 @@ def run_pipeline(mode: str = "full"):
         try:
             candidates, trends = fetch_all_candidates()
         except Exception as e:
-            logging.error(f"Data fetch failed: {e}")
+            logging.error("Data fetch failed: %s", e)
             candidates = []
             trends = []
 
@@ -146,7 +150,7 @@ def run_pipeline(mode: str = "full"):
                 scored = choose_best_topic(candidates)
                 selected_topic = scored.candidate
             except Exception as e:
-                logging.error(f"Scoring failed: {e}")
+                logging.error("Scoring failed: %s", e)
                 selected_topic = candidates[0]
                 scored = _safe_scored_topic(selected_topic)
         else:
@@ -160,7 +164,7 @@ def run_pipeline(mode: str = "full"):
         try:
             content = generate_content(selected_topic, scored, trends)
         except Exception as e:
-            logging.error(f"Content generation failed: {e}")
+            logging.error("Content generation failed: %s", e)
             content = _fallback_package()
 
         try:
@@ -178,7 +182,7 @@ def run_pipeline(mode: str = "full"):
                 "trends": trends,
             }, work_dir / "content.json")
         except Exception as e:
-            logging.error(f"JSON save failed: {e}")
+            logging.error("JSON save failed: %s", e)
 
         try:
             thumbnail_path = str(create_thumbnail(
@@ -187,25 +191,25 @@ def run_pipeline(mode: str = "full"):
                 work_dir / "thumbnail.jpg",
             ))
         except Exception as e:
-            logging.error(f"Thumbnail failed: {e}")
+            logging.error("Thumbnail failed: %s", e)
             thumbnail_path = None
 
         try:
             audio_path = generate_voice(content, work_dir)
         except Exception as e:
-            logging.error(f"Voice failed: {e}")
+            logging.error("Voice failed: %s", e)
             audio_path = None
 
         try:
             video_path = create_video(audio_path, work_dir)
         except Exception as e:
-            logging.error(f"Video failed: {e}")
+            logging.error("Video failed: %s", e)
             video_path = None
 
         try:
             upload_result = upload_video_safe(video_path, content, thumbnail_path)
         except Exception as e:
-            logging.error(f"Upload failed: {e}")
+            logging.error("Upload failed: %s", e)
 
         _write_latest_run({
             "work_dir": str(work_dir),
@@ -233,7 +237,7 @@ def run_pipeline(mode: str = "full"):
         except Exception:
             logging.warning("Telegram failed, skipping")
     except Exception as e:
-        logging.error(f"Pipeline recovered from error: {e}")
+        logging.error("Pipeline recovered from error: %s", e)
         _write_status({
             "running": False,
             "failed": True,
@@ -250,6 +254,14 @@ def run_pipeline(mode: str = "full"):
         logging.info("Pipeline completed")
 
 
-if __name__ == "__main__":
+def run_pipeline_logic(mode: str = "full") -> None:
+    run_pipeline(mode)
+
+
+def main() -> None:
     selected_mode = sys.argv[1] if len(sys.argv) > 1 else "full"
-    run_pipeline(selected_mode)
+    run_pipeline_logic(selected_mode)
+
+
+if __name__ == "__main__":
+    main()
