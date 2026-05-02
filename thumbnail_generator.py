@@ -1,13 +1,5 @@
 """
-Simple Telugu thumbnail generator using Pillow.
-
-Usage:
-  python thumbnail_generator.py "తెలుగు టెక్స్ట్ ఇక్కడ"
-
-Requirements:
-  pip install Pillow python-dotenv
-
-The script reads THUMBNAIL_FONT_PATH from .env and writes thumbnail.jpg.
+Simple Telugu thumbnail generator using Pillow - FIXED FOR RENDER
 """
 
 from __future__ import annotations
@@ -31,43 +23,36 @@ DEFAULT_TEXT = "తెలుగు స్పోర్ట్స్ అప్‌�
 
 
 def _find_font_path(font_path: str) -> Path:
-    path = Path(font_path)
-    if path.exists():
-        return path
+    """Render (Linux) + Windows font fallback"""
+    candidates = [
+        Path(font_path) if font_path else None,
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSansTelugu-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/freefont/FreeSans.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("C:/Windows/Fonts/Nirmala.ttf"),
+        Path("C:/Windows/Fonts/Nirmala.ttc"),
+        Path("C:/Windows/Fonts/Vrinda.ttf"),
+    ]
 
-    fallback_candidates: list[Path] = []
-    if path.parent.exists() and path.suffix.lower() == ".ttf":
-        fallback_candidates.append(path.with_suffix(".ttc"))
-        fallback_candidates.append(path.with_suffix(".otf"))
+    for path in candidates:
+        if path and path.exists():
+            print(f"✅ Using font: {path}")
+            return path
 
-    windows_fonts = Path("C:/Windows/Fonts")
-    if windows_fonts.exists():
-        for file in windows_fonts.iterdir():
-            if file.suffix.lower() in {".ttf", ".ttc", ".otf"}:
-                name = file.stem.lower()
-                if any(keyword in name for keyword in ["nirmala", "gautami", "vrinda", "telu"]):
-                    fallback_candidates.append(file)
-
-    for candidate in fallback_candidates:
-        if candidate.exists():
-            return candidate
-
-    raise FileNotFoundError(f"Font file not found: {path}")
+    raise FileNotFoundError(f"Font not found. Tried: {[str(p) for p in candidates if p]}")
 
 
 def load_font(font_path: str, size: int) -> ImageFont.FreeTypeFont:
     path = _find_font_path(font_path)
-
     try:
         return ImageFont.truetype(str(path), size=size)
     except OSError as exc:
-        raise OSError(
-            f"Unable to load font from THUMBNAIL_FONT_PATH: {path}. "
-            "Make sure the file is a valid .ttf, .ttc, or .otf font."
-        ) from exc
+        raise OSError(f"Unable to load font: {path}") from exc
 
 
 def wrap_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
+    """Wrap text to fit within max_width"""
     words = text.split()
     lines: list[str] = []
     current_line = ""
@@ -76,6 +61,7 @@ def wrap_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont, max
         candidate = f"{current_line} {word}".strip()
         bbox = draw.textbbox((0, 0), candidate, font=font)
         width = bbox[2] - bbox[0]
+        
         if width <= max_width:
             current_line = candidate
         else:
@@ -90,30 +76,40 @@ def wrap_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont, max
 
 
 def create_thumbnail(text: str, font_path: str, output_path: Path = OUTPUT_FILE) -> Path:
+    """Create thumbnail with Telugu text"""
     font = load_font(font_path, size=72)
     small_font = load_font(font_path, size=36)
 
     image = Image.new("RGB", IMAGE_SIZE, color=BACKGROUND_COLOR)
     draw = ImageDraw.Draw(image)
 
-    # Top banner for channel branding
+    # Top banner
     draw.rectangle([(0, 0), (IMAGE_SIZE[0], 120)], fill=BANNER_COLOR)
     draw.text((40, 30), "TELUGU SPORTS UPDATE", font=small_font, fill=SUBTEXT_COLOR)
 
-    # Render the Telugu headline text in the center area.
+    # Main Telugu text
     max_text_width = IMAGE_SIZE[0] - 120
     lines = wrap_text(draw, text, font, max_text_width)
+    
     y = 180
     for line in lines:
-        draw.text((60, y), line, font=font, fill=TEXT_COLOR, stroke_width=2, stroke_fill=(10, 10, 10))
+        draw.text(
+            (60, y), 
+            line, 
+            font=font, 
+            fill=TEXT_COLOR, 
+            stroke_width=3, 
+            stroke_fill=(10, 10, 10)
+        )
         _, _, _, text_bottom = draw.textbbox((0, 0), line, font=font)
-        y += text_bottom + 12
+        y += text_bottom + 15
 
-    # Optional accent bar at bottom.
+    # Bottom bar
     draw.rectangle([(0, IMAGE_SIZE[1] - 80), (IMAGE_SIZE[0], IMAGE_SIZE[1])], fill=(18, 18, 40))
     draw.text((40, IMAGE_SIZE[1] - 60), "Daily Telugu sports thumbnail", font=small_font, fill=SUBTEXT_COLOR)
 
     image.save(output_path, quality=95)
+    print(f"✅ Thumbnail saved: {output_path}")
     return output_path
 
 
@@ -122,19 +118,15 @@ def main() -> int:
     font_path = os.getenv("THUMBNAIL_FONT_PATH")
 
     if not font_path:
-        print("Error: THUMBNAIL_FONT_PATH is not set in .env.")
-        print("Please add THUMBNAIL_FONT_PATH to your .env file and try again.")
+        print("❌ Error: THUMBNAIL_FONT_PATH is not set in .env")
+        print("Please set it in Render Environment Variables.")
         return 1
 
     try:
         saved_path = create_thumbnail(text, font_path)
-        print(f"Thumbnail created: {saved_path}")
         return 0
-    except FileNotFoundError as error:
-        print(f"Error: {error}")
-        return 1
-    except OSError as error:
-        print(f"Error loading font: {error}")
+    except Exception as e:
+        print(f"❌ Error creating thumbnail: {e}")
         return 1
 
 

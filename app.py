@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -8,7 +9,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -18,11 +19,24 @@ from utils import dump_json, get_logger, load_json
 
 logger = get_logger(__name__)
 app = FastAPI(title="Telugu Sports Automation Dashboard")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 DIST_DIR = BASE_DIR / "frontend" / "dist"
+
+# Ensure output directory exists
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# Set font path for Render (Linux)
+if "THUMBNAIL_FONT_PATH" not in os.environ:
+    os.environ["THUMBNAIL_FONT_PATH"] = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 pipeline_lock = threading.Lock()
 
@@ -40,7 +54,10 @@ def _latest_run_file() -> Path | None:
     if latest_path.exists():
         return latest_path
 
-    run_dirs = sorted([entry for entry in OUTPUT_DIR.iterdir() if entry.is_dir()], key=lambda item: item.name)
+    run_dirs = sorted(
+        [entry for entry in OUTPUT_DIR.iterdir() if entry.is_dir()],
+        key=lambda item: item.name
+    )
     if not run_dirs:
         return None
     candidate = run_dirs[-1] / "run.json"
@@ -108,7 +125,7 @@ def _run_pipeline_thread(mode: str) -> None:
     with pipeline_lock:
         try:
             run_pipeline(mode=mode)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.exception("Background pipeline failed: %s", exc)
             dump_json(
                 OUTPUT_DIR / "pipeline_status.json",
@@ -122,6 +139,8 @@ def _run_pipeline_thread(mode: str) -> None:
                 },
             )
 
+
+# ====================== ROUTES ======================
 
 @app.get("/status")
 async def get_status() -> JSONResponse:
@@ -168,10 +187,18 @@ async def post_retry() -> JSONResponse:
     return JSONResponse({"status": "queued", "mode": "retry"})
 
 
+# ====================== STATIC FILES ======================
 if DIST_DIR.exists():
     app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
     app.mount("/", StaticFiles(directory=str(DIST_DIR), html=True), name="frontend")
 else:
     @app.get("/")
     async def root() -> dict[str, str]:
-        return {"message": "Frontend build not found. Run npm install && npm run build in frontend."}
+        return {
+            "message": "Frontend not found. Run: npm install && npm run build in frontend folder."
+        }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
