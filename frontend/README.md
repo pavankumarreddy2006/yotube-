@@ -21,6 +21,7 @@ By default the Vite dev server proxies these routes to `http://localhost:8000`:
 - `/logs`
 - `/run`
 - `/retry`
+- `/upload`
 
 If your backend is hosted elsewhere, add a `.env` file in `frontend/`:
 

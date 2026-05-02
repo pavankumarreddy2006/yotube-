@@ -13,7 +13,8 @@ export default defineConfig({
       "/content": "http://localhost:8000",
       "/logs": "http://localhost:8000",
       "/run": "http://localhost:8000",
-      "/retry": "http://localhost:8000"
+      "/retry": "http://localhost:8000",
+      "/upload": "http://localhost:8000"
     }
   }
 });

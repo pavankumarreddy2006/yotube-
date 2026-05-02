@@ -28,18 +28,18 @@ SPORTS_KEYWORDS = [
 
 FALLBACK_STORIES = [
     {
-        "title": "భారత్ జట్టు తర్వాతి మ్యాచ్ కోసం భారీ అంచనాలు",
-        "summary": "టీమ్ ఇండియా ఫామ్, కీలక ప్లేయర్లు, ఫ్యాన్స్ ఎక్స్‌పెక్టేషన్స్ మీద ఫోకస్.",
+        "title": "India Team Build-Up Before The Next Big Match",
+        "summary": "Focus is on form, key players, pressure moments, and what fans are expecting next.",
         "source": "fallback",
         "topic": "india cricket",
         "players": ["Virat Kohli", "Rohit Sharma"],
-        "tournament": "international",
+        "tournament": "international cricket",
         "is_india": True,
         "is_thriller": False,
     },
     {
-        "title": "IPL రేస్ మరింత హీట్: ప్లే ఆఫ్స్ కోసం పోటీ టఫ్",
-        "summary": "పాయింట్స్ టేబుల్, స్టార్ ప్లేయర్ల ప్రభావం, నెక్స్ట్ మ్యాచ్ హైప్.",
+        "title": "IPL Race Heats Up As Playoff Pressure Builds",
+        "summary": "Points table pressure, star player momentum, and huge interest around the next fixture.",
         "source": "fallback",
         "topic": "ipl",
         "players": ["MS Dhoni"],
@@ -91,7 +91,7 @@ def fetch_news() -> list[TopicCandidate]:
     )
     candidates: list[TopicCandidate] = []
     for article in payload.get("articles", []):
-        title = article.get("title") or ""
+        title = article.get("title") or "Sports update"
         description = article.get("description") or "Sports update."
         text = f"{title} {description}".lower()
         candidates.append(
@@ -157,29 +157,29 @@ def fetch_trends() -> list[str]:
         pytrends.build_payload(SPORTS_KEYWORDS, timeframe="now 7-d", geo="IN")
         related = pytrends.related_queries()
         trend_terms: list[str] = []
-        for keyword, payload in related.items():
+        for _, payload in related.items():
             top_df = payload.get("top") if payload else None
             if top_df is not None:
                 trend_terms.extend(top_df["query"].head(3).astype(str).tolist())
         return list(dict.fromkeys(term for term in trend_terms if term))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("Trend detection failed: %s", exc)
         return ["India cricket", "IPL", "Virat Kohli"]
 
 
 def fetch_all_candidates() -> tuple[list[TopicCandidate], list[str]]:
-    news = []
-    cricket = []
     trends = fetch_trends()
+    news: list[TopicCandidate] = []
+    cricket: list[TopicCandidate] = []
 
     try:
         news = fetch_news()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("News fetch failed: %s", exc)
 
     try:
         cricket = fetch_cricket_updates()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Cricket fetch failed: %s", exc)
 
     merged = news + cricket

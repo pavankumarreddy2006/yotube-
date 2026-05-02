@@ -11,9 +11,9 @@ from data import TopicCandidate, fallback_story_for_date, fetch_all_candidates
 from notify import send_telegram
 from scoring import ScoredTopic, choose_best_topic
 from settings import BASE_DIR, OUTPUT_DIR, settings
-from thumbnail_generator import create_thumbnail
+from thumbnail import create_thumbnail
 from upload import upload_video
-from utils import dump_json, get_logger, setup_logging, slugify
+from utils import dump_json, get_logger, load_json, setup_logging, slugify
 from video import build_video
 from voice import synthesize_voice
 
@@ -114,7 +114,48 @@ def upload_video_safe(video_path: str | None, content: ContentPackage, thumbnail
     )
 
 
-def run_pipeline(mode: str = "full"):
+def _load_latest_content_package() -> ContentPackage:
+    latest_run = load_json(OUTPUT_DIR / "latest_run.json", default={}) or {}
+    content_payload = {}
+    work_dir = latest_run.get("work_dir")
+    if work_dir:
+        content_payload = load_json(Path(str(work_dir)) / "content.json", default={}) or {}
+    content_data = content_payload.get("content", {})
+    if not content_data:
+        return _fallback_package()
+    return ContentPackage(
+        title=content_data.get("title", "Telugu Sports Update"),
+        hook=content_data.get("hook", ""),
+        shorts_script=content_data.get("shorts_script", ""),
+        long_script=content_data.get("long_script", ""),
+        thumbnail_text=content_data.get("thumbnail_text", "Sports Update"),
+        thumbnail_idea=content_data.get("thumbnail_idea", ""),
+        description=content_data.get("description", ""),
+        hashtags=content_data.get("hashtags", []) or [],
+        tags=content_data.get("tags", []) or [],
+    )
+
+
+def _build_notifications(upload_result: str | None, work_dir: Path) -> list[dict[str, str]]:
+    items = [
+        {
+            "id": "run-complete",
+            "timestamp": datetime.now().isoformat(),
+            "message": f"Pipeline completed. Output folder: {work_dir.name}",
+        }
+    ]
+    if upload_result:
+        items.append(
+            {
+                "id": "upload-result",
+                "timestamp": datetime.now().isoformat(),
+                "message": f"Upload result: {upload_result}",
+            }
+        )
+    return items
+
+
+def run_pipeline(mode: str = "full") -> None:
     logging.info("Pipeline started")
 
     _write_status({
@@ -138,6 +179,40 @@ def run_pipeline(mode: str = "full"):
     work_dir = OUTPUT_DIR
 
     try:
+        if mode == "upload_only":
+            latest_run = load_json(OUTPUT_DIR / "latest_run.json", default={}) or {}
+            content = _load_latest_content_package()
+            video_path = latest_run.get("video") or None
+            thumbnail_path = latest_run.get("thumbnail") or None
+            work_dir_value = latest_run.get("work_dir")
+            if work_dir_value:
+                work_dir = Path(str(work_dir_value))
+
+            upload_result = upload_video_safe(video_path, content, thumbnail_path)
+            _write_latest_run({
+                "work_dir": str(work_dir),
+                "title": content.title,
+                "video": video_path,
+                "audio": latest_run.get("audio"),
+                "thumbnail": thumbnail_path,
+                "upload": upload_result,
+                "completed_at": datetime.now().isoformat(),
+            })
+            _write_status({
+                "running": False,
+                "failed": False,
+                "status": "Completed",
+                "current_task": "Upload-only pipeline completed",
+                "last_run_time": datetime.now().isoformat(),
+                "mode": mode,
+                "work_dir": str(work_dir),
+                "video": video_path,
+                "thumbnail_url": thumbnail_path,
+                "thumbnail_text": content.thumbnail_text,
+                "notifications": _build_notifications(upload_result, work_dir),
+            })
+            return
+
         try:
             candidates, trends = fetch_all_candidates()
         except Exception as e:
@@ -184,27 +259,28 @@ def run_pipeline(mode: str = "full"):
         except Exception as e:
             logging.error("JSON save failed: %s", e)
 
-        try:
-            thumbnail_path = str(create_thumbnail(
-                content.thumbnail_text or "Telugu Sports Update",
-                settings.thumbnail_font_path,
-                work_dir / "thumbnail.jpg",
-            ))
-        except Exception as e:
-            logging.error("Thumbnail failed: %s", e)
-            thumbnail_path = None
+        if mode != "upload_only":
+            try:
+                thumbnail_path = str(create_thumbnail(
+                    content.thumbnail_text or "Telugu Sports Update",
+                    content.thumbnail_idea,
+                    work_dir / "thumbnail.jpg",
+                ))
+            except Exception as e:
+                logging.error("Thumbnail failed: %s", e)
+                thumbnail_path = None
 
-        try:
-            audio_path = generate_voice(content, work_dir)
-        except Exception as e:
-            logging.error("Voice failed: %s", e)
-            audio_path = None
+            try:
+                audio_path = generate_voice(content, work_dir)
+            except Exception as e:
+                logging.error("Voice failed: %s", e)
+                audio_path = None
 
-        try:
-            video_path = create_video(audio_path, work_dir)
-        except Exception as e:
-            logging.error("Video failed: %s", e)
-            video_path = None
+            try:
+                video_path = create_video(audio_path, work_dir)
+            except Exception as e:
+                logging.error("Video failed: %s", e)
+                video_path = None
 
         try:
             upload_result = upload_video_safe(video_path, content, thumbnail_path)
@@ -230,6 +306,9 @@ def run_pipeline(mode: str = "full"):
             "mode": mode,
             "work_dir": str(work_dir),
             "video": video_path,
+            "thumbnail_url": thumbnail_path,
+            "thumbnail_text": content.thumbnail_text,
+            "notifications": _build_notifications(upload_result, work_dir),
         })
 
         try:
@@ -245,6 +324,13 @@ def run_pipeline(mode: str = "full"):
             "current_task": f"Recovered from error: {str(e)[:120]}",
             "last_run_time": datetime.now().isoformat(),
             "mode": mode,
+            "notifications": [
+                {
+                    "id": "run-recovered",
+                    "timestamp": datetime.now().isoformat(),
+                    "message": f"Pipeline recovered from error: {str(e)[:160]}",
+                }
+            ],
         })
         try:
             send_telegram(f"Pipeline recovered from error: {str(e)[:200]}")

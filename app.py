@@ -126,7 +126,7 @@ def _load_status() -> dict[str, Any]:
 
     latest_run = _latest_run_payload()
     latest_content = _latest_content_payload()
-    status.setdefault("thumbnail_url", _to_output_url(latest_run.get("thumbnail")))
+    status["thumbnail_url"] = _to_output_url(status.get("thumbnail_url")) or _to_output_url(latest_run.get("thumbnail"))
     status.setdefault("thumbnail_text", latest_content.get("content", {}).get("thumbnail_text", ""))
     status.setdefault("notifications", [])
     return status
@@ -200,6 +200,16 @@ def run_pipeline() -> dict[str, str]:
         return {"error": str(e)}
 
 
+@app.post("/upload")
+async def upload_latest() -> JSONResponse:
+    try:
+        subprocess.Popen([sys.executable, "main.py", "upload_only"], cwd=str(BASE_DIR))
+        return JSONResponse({"status": "upload started", "mode": "upload_only"})
+    except Exception as e:
+        logging.error("Failed to start upload-only pipeline: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.post("/run")
 async def post_run(run_request: RunRequest) -> JSONResponse:
     try:
@@ -232,6 +242,10 @@ app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
 if DIST_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="frontend-assets")
+
+    @app.get("/dashboard")
+    async def dashboard() -> FileResponse:
+        return FileResponse(DIST_DIR / "index.html")
 else:
     @app.get("/dashboard")
     async def dashboard() -> JSONResponse:

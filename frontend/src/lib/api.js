@@ -41,6 +41,6 @@ export async function retryFailedTask() {
 }
 
 export async function uploadAgain() {
-  const { data } = await api.post("/run", { mode: "upload_only" });
+  const { data } = await api.post("/upload");
   return data;
 }

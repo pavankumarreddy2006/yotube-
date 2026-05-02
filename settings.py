@@ -37,7 +37,7 @@ class Settings:
     background_video_vertical: str = os.getenv("BACKGROUND_VIDEO_VERTICAL", str(ASSETS_DIR / "background_vertical.mp4"))
     thumbnail_font_path: str = os.getenv(
         "THUMBNAIL_FONT_PATH",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        str(ASSETS_DIR / "DejaVuSans-Bold.ttf"),
     )
     channel_name: str = os.getenv("CHANNEL_NAME", "Telugu Sports Update")
     enable_upload: bool = _get_bool("ENABLE_UPLOAD", True)
