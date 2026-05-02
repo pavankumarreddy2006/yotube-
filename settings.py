@@ -13,11 +13,13 @@ OUTPUT_DIR = BASE_DIR / "output"
 ASSETS_DIR = BASE_DIR / "assets"
 TEMP_DIR = BASE_DIR / "tmp"
 
+
 def _get_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -32,13 +34,11 @@ class Settings:
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     ffmpeg_path: str = os.getenv("FFMPEG_PATH", "ffmpeg")
-    
-    # Render + Windows compatible font
+    background_video_vertical: str = os.getenv("BACKGROUND_VIDEO_VERTICAL", str(ASSETS_DIR / "background_vertical.mp4"))
     thumbnail_font_path: str = os.getenv(
-        "THUMBNAIL_FONT_PATH", 
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        "THUMBNAIL_FONT_PATH",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     )
-    
     channel_name: str = os.getenv("CHANNEL_NAME", "Telugu Sports Update")
     enable_upload: bool = _get_bool("ENABLE_UPLOAD", True)
     enable_notifications: bool = _get_bool("ENABLE_NOTIFICATIONS", True)
@@ -46,8 +46,8 @@ class Settings:
     enable_long_video: bool = _get_bool("ENABLE_LONG_VIDEO", True)
     public_visibility: str = os.getenv("YOUTUBE_PRIVACY_STATUS", "public")
 
+
 settings = Settings()
 
-# Create required directories
 for required_dir in (OUTPUT_DIR, ASSETS_DIR, TEMP_DIR):
     required_dir.mkdir(parents=True, exist_ok=True)

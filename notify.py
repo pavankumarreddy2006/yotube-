@@ -8,8 +8,17 @@ from utils import get_logger
 
 logger = get_logger(__name__)
 
-# Send a Telegram message after upload or when the pipeline fails.
-# This keeps notifications simple and does not block the main pipeline.
+
+def send_message(url: str, message: str) -> None:
+    response = requests.post(
+        url,
+        json={
+            "chat_id": str(settings.telegram_chat_id),
+            "text": str(message),
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
 
 
 def send_telegram(message: str) -> None:
@@ -20,15 +29,6 @@ def send_telegram(message: str) -> None:
         return
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
     try:
-        response = requests.post(
-            url,
-            json={
-                "chat_id": settings.telegram_chat_id,
-                "text": message,
-                "parse_mode": "HTML",
-            },
-            timeout=20,
-        )
-        response.raise_for_status()
+        send_message(url, message)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Telegram notification failed: %s", exc)
+        logger.warning("Telegram failed, skipping: %s", exc)

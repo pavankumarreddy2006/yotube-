@@ -1,0 +1,129 @@
+2026-05-02 15:39:22,904 - INFO - Pipeline started
+2026-05-02 15:39:23,956 - WARNING - Trend detection failed: The request failed: Google returned a response with code 400
+2026-05-02 15:39:35,231 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:39:35,234 - INFO - Retrying request to /responses in 0.412389 seconds
+2026-05-02 15:39:41,115 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:39:41,115 - INFO - Retrying request to /responses in 0.958575 seconds
+2026-05-02 15:39:48,307 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:39:48,310 - WARNING - Using fallback content
+2026-05-02 15:39:48,310 - ERROR - LLM generation failed
+Traceback (most recent call last):
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 61, in generate_content
+    return _generate_with_llm(topic, scored, trends)
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 112, in _generate_with_llm
+    return retry(
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\utils.py", line 58, in retry
+    return operation()
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 94, in operation
+    response = client.responses.create(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_utils\_utils.py", line 287, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\resources\responses\responses.py", line 684, in create
+    return self._post(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1239, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1034, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2026-05-02 15:39:48,327 - ERROR - JSON save failed: Object of type TopicCandidate is not JSON serializable
+2026-05-02 15:39:48,331 - ERROR - Thumbnail failed: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+2026-05-02 15:39:56,253 - WARNING - \u26a0\ufe0f FFmpeg not found. Using moviepy fallback.
+2026-05-02 15:40:15,410 - ERROR - Video failed: moviepy fallback video failed after 3 attempts
+2026-05-02 15:40:15,410 - INFO - Upload skipped because video or thumbnail is unavailable
+2026-05-02 15:40:16,798 - WARNING - Telegram failed, skipping: 400 Client Error: Bad Request for url: https://api.telegram.org/bot8458400841:AAFW83brjxvk-5iCXM0PnwLVYgeGT6J6bWM/sendMessage
+2026-05-02 15:40:16,798 - INFO - Pipeline completed
+2026-05-02 15:42:12,321 - INFO - Pipeline started
+2026-05-02 15:42:13,226 - WARNING - Trend detection failed: The request failed: Google returned a response with code 400
+2026-05-02 15:42:22,246 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:42:22,248 - INFO - Retrying request to /responses in 0.437459 seconds
+2026-05-02 15:42:28,574 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:42:28,574 - INFO - Retrying request to /responses in 0.789278 seconds
+2026-05-02 15:42:34,115 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:42:34,117 - WARNING - Using fallback content
+2026-05-02 15:42:34,119 - ERROR - LLM generation failed
+Traceback (most recent call last):
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 61, in generate_content
+    return _generate_with_llm(topic, scored, trends)
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 112, in _generate_with_llm
+    return retry(
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\utils.py", line 58, in retry
+    return operation()
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 94, in operation
+    response = client.responses.create(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_utils\_utils.py", line 287, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\resources\responses\responses.py", line 684, in create
+    return self._post(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1239, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1034, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2026-05-02 15:42:34,237 - ERROR - Thumbnail failed: 'charmap' codec can't encode character '\u0c2d' in position 102: character maps to <undefined>
+2026-05-02 15:42:42,310 - WARNING - \u26a0\ufe0f FFmpeg not found. Using moviepy fallback.
+2026-05-02 15:43:00,967 - ERROR - Video failed: moviepy fallback video failed after 3 attempts
+2026-05-02 15:43:00,969 - INFO - Upload skipped because video or thumbnail is unavailable
+2026-05-02 15:43:02,373 - WARNING - Telegram failed, skipping: 400 Client Error: Bad Request for url: https://api.telegram.org/bot8458400841:AAFW83brjxvk-5iCXM0PnwLVYgeGT6J6bWM/sendMessage
+2026-05-02 15:43:02,375 - INFO - Pipeline completed
+2026-05-02 15:55:07,557 - INFO - Pipeline started
+2026-05-02 15:55:08,956 - WARNING - Trend detection failed: The request failed: Google returned a response with code 400
+2026-05-02 15:55:18,651 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:55:18,654 - INFO - Retrying request to /responses in 0.449493 seconds
+2026-05-02 15:55:25,209 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:55:25,211 - INFO - Retrying request to /responses in 0.909568 seconds
+2026-05-02 15:55:31,277 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 15:55:31,280 - WARNING - Using fallback content
+2026-05-02 15:55:31,280 - ERROR - LLM generation failed
+Traceback (most recent call last):
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 61, in generate_content
+    return _generate_with_llm(topic, scored, trends)
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 112, in _generate_with_llm
+    return retry(
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\utils.py", line 58, in retry
+    return operation()
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 94, in operation
+    response = client.responses.create(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_utils\_utils.py", line 287, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\resources\responses\responses.py", line 684, in create
+    return self._post(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1239, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1034, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2026-05-02 15:55:39,096 - WARNING - FFmpeg not found. Falling back to placeholder video output.
+2026-05-02 15:55:39,526 - INFO - file_cache is only supported with oauth2client<4.0.0
+2026-05-02 15:55:43,431 - WARNING - Encountered 403 Forbidden with reason "forbidden"
+2026-05-02 15:55:49,205 - WARNING - Encountered 403 Forbidden with reason "forbidden"
+2026-05-02 15:55:56,621 - WARNING - Encountered 403 Forbidden with reason "forbidden"
+2026-05-02 15:55:56,621 - ERROR - Upload failed: upload -> C:\Users\pavan\OneDrive\Documents\projects\youtube automation\output\20260502_155531_\u0c2d-\u0c30\u0c24-\u0c1c\u0c1f-\u0c1f-\u0c24\u0c30-\u0c35-\u0c24-\u0c2e-\u0c2f-\u0c1a-\u0c15-\u0c38-\u0c2d-\u0c30-\u0c05-\u0c1a\u0c28-\u0c32-\u0c24-\u0c32-\u0c17-\u0c2b-\u0c2f-\u0c28-\u0c38-\u0c37-\u0c15\shorts.mp4 failed after 3 attempts
+2026-05-02 15:59:20,602 - WARNING - Telegram failed, skipping: ('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))
+2026-05-02 15:59:20,604 - INFO - Pipeline completed
+2026-05-02 16:02:46,981 - INFO - Pipeline started
+2026-05-02 16:02:48,174 - WARNING - Trend detection failed: The request failed: Google returned a response with code 400
+2026-05-02 16:02:57,105 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 16:02:57,105 - INFO - Retrying request to /responses in 0.423829 seconds
+2026-05-02 16:03:02,731 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 16:03:02,731 - INFO - Retrying request to /responses in 0.928873 seconds
+2026-05-02 16:03:08,646 - INFO - HTTP Request: POST https://api.openai.com/v1/responses "HTTP/1.1 429 Too Many Requests"
+2026-05-02 16:03:08,661 - WARNING - Using fallback content
+2026-05-02 16:03:08,664 - ERROR - LLM generation failed
+Traceback (most recent call last):
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 61, in generate_content
+    return _generate_with_llm(topic, scored, trends)
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 112, in _generate_with_llm
+    return retry(
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\utils.py", line 58, in retry
+    return operation()
+  File "C:\Users\pavan\OneDrive\Documents\projects\youtube automation\content.py", line 94, in operation
+    response = client.responses.create(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_utils\_utils.py", line 287, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\resources\responses\responses.py", line 684, in create
+    return self._post(
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1239, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+  File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1034, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
