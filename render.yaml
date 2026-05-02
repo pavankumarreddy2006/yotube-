@@ -1,12 +1,6 @@
 services:
   - type: web
-    name: telugu-youtube-sports-dashboard
+    name: youtube-automation
     env: python
-    buildCommand: "pip install -r requirements.txt && cd frontend && npm install && npm run build"
-    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
-  - type: cron
-    name: telugu-youtube-sports-automation
-    env: python
-    schedule: "0 5 * * *"
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main.py"
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
