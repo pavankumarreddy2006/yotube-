@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import threading
 from datetime import datetime
@@ -31,10 +30,10 @@ app.add_middleware(
 BASE_DIR = Path(__file__).resolve().parent
 DIST_DIR = BASE_DIR / "frontend" / "dist"
 
-# Ensure output directory exists
+# Ensure directories
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Set font path for Render (Linux)
+# Render Linux font fallback
 if "THUMBNAIL_FONT_PATH" not in os.environ:
     os.environ["THUMBNAIL_FONT_PATH"] = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
@@ -54,10 +53,7 @@ def _latest_run_file() -> Path | None:
     if latest_path.exists():
         return latest_path
 
-    run_dirs = sorted(
-        [entry for entry in OUTPUT_DIR.iterdir() if entry.is_dir()],
-        key=lambda item: item.name
-    )
+    run_dirs = sorted([entry for entry in OUTPUT_DIR.iterdir() if entry.is_dir()], key=lambda item: item.name)
     if not run_dirs:
         return None
     candidate = run_dirs[-1] / "run.json"
@@ -141,7 +137,6 @@ def _run_pipeline_thread(mode: str) -> None:
 
 
 # ====================== ROUTES ======================
-
 @app.get("/status")
 async def get_status() -> JSONResponse:
     return JSONResponse(_load_status())
@@ -187,15 +182,21 @@ async def post_retry() -> JSONResponse:
     return JSONResponse({"status": "queued", "mode": "retry"})
 
 
-# ====================== STATIC FILES ======================
+# ====================== ROOT ROUTE ======================
 if DIST_DIR.exists():
     app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
     app.mount("/", StaticFiles(directory=str(DIST_DIR), html=True), name="frontend")
 else:
     @app.get("/")
-    async def root() -> dict[str, str]:
+    async def root():
         return {
-            "message": "Frontend not found. Run: npm install && npm run build in frontend folder."
+            "status": "ok",
+            "message": "Telugu Sports Automation Backend is Running Successfully! 🚀",
+            "endpoints": {
+                "/status": "Get pipeline status",
+                "/run": "Start pipeline",
+                "/logs": "View logs"
+            }
         }
 
 
