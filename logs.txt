@@ -127,3 +127,11 @@ Traceback (most recent call last):
   File "C:\Users\pavan\AppData\Local\Programs\Python\Python310\lib\site-packages\openai\_base_client.py", line 1034, in request
     raise self._make_status_error_from_response(err.response) from None
 openai.RateLimitError: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+2026-05-02 16:03:18,300 - WARNING - FFmpeg not found. Falling back to placeholder video output.
+2026-05-02 16:03:18,700 - INFO - file_cache is only supported with oauth2client<4.0.0
+2026-05-02 16:03:22,933 - WARNING - Encountered 403 Forbidden with reason "forbidden"
+2026-05-02 16:03:28,485 - WARNING - Encountered 403 Forbidden with reason "forbidden"
+2026-05-02 16:03:36,253 - WARNING - Encountered 403 Forbidden with reason "forbidden"
+2026-05-02 16:03:36,254 - ERROR - Upload failed: upload -> C:\Users\pavan\OneDrive\Documents\projects\youtube automation\output\20260502_160308_\u0c2d-\u0c30\u0c24-\u0c1c\u0c1f-\u0c1f-\u0c24\u0c30-\u0c35-\u0c24-\u0c2e-\u0c2f-\u0c1a-\u0c15-\u0c38-\u0c2d-\u0c30-\u0c05-\u0c1a\u0c28-\u0c32-\u0c24-\u0c32-\u0c17-\u0c2b-\u0c2f-\u0c28-\u0c38-\u0c37-\u0c15\shorts.mp4 failed after 3 attempts
+2026-05-02 16:03:37,461 - WARNING - Telegram failed, skipping: 400 Client Error: Bad Request for url: https://api.telegram.org/bot8458400841:AAFW83brjxvk-5iCXM0PnwLVYgeGT6J6bWM/sendMessage
+2026-05-02 16:03:37,461 - INFO - Pipeline completed
