@@ -44,14 +44,12 @@ def _fallback_package() -> ContentPackage:
     data = fallback_content()
     return ContentPackage(
         title=data["title"],
+        description=f"{data['script']}\n\nsports news, cricket, football, highlights\nLike, Share, Subscribe.",
+        tags=["sports news", "cricket", "football", "highlights", "sports update", "breaking news", "match highlights", "cricket news", "football news", "viral sports"],
+        thumbnail_text="SPORTS UPDATE",
         hook=data["script"],
-        shorts_script=data["script"],
-        long_script=data["script"] if settings.enable_long_video else "",
-        thumbnail_text="Telugu Sports Update",
-        thumbnail_idea="Bold Telugu sports news thumbnail",
-        description=data["script"],
-        hashtags=["#TeluguSports", "#SportsUpdate"],
-        tags=["telugu sports", "sports update"],
+        shorts_script_telugu=data["script"],
+        long_script_english=data["script"] if settings.enable_long_video else "",
     )
 
 
@@ -104,14 +102,18 @@ def create_video(audio_path: str | None, work_dir: Path) -> str | None:
 def upload_video_safe(video_path: str | None, content: ContentPackage, thumbnail_path: str | None) -> str | None:
     if not video_path or not thumbnail_path:
         logger.info("Upload skipped because video or thumbnail is unavailable")
-        return None
-    return upload_video(
-        video_path=str(video_path),
-        title=content.title,
-        description=content.description,
-        tags=content.tags,
-        thumbnail_path=str(thumbnail_path),
-    )
+        return "upload-skipped-missing-artifacts"
+    try:
+        return upload_video(
+            video_path=str(video_path),
+            title=content.title,
+            description=content.description,
+            tags=content.tags,
+            thumbnail_path=str(thumbnail_path),
+        )
+    except Exception as exc:
+        logger.error("Upload failed: %s", exc)
+        return f"upload-failed: {str(exc)[:180]}"
 
 
 def _load_latest_content_package() -> ContentPackage:
@@ -125,14 +127,12 @@ def _load_latest_content_package() -> ContentPackage:
         return _fallback_package()
     return ContentPackage(
         title=content_data.get("title", "Telugu Sports Update"),
-        hook=content_data.get("hook", ""),
-        shorts_script=content_data.get("shorts_script", ""),
-        long_script=content_data.get("long_script", ""),
-        thumbnail_text=content_data.get("thumbnail_text", "Sports Update"),
-        thumbnail_idea=content_data.get("thumbnail_idea", ""),
         description=content_data.get("description", ""),
-        hashtags=content_data.get("hashtags", []) or [],
         tags=content_data.get("tags", []) or [],
+        thumbnail_text=content_data.get("thumbnail_text", "SPORTS UPDATE"),
+        hook=content_data.get("hook", ""),
+        shorts_script_telugu=content_data.get("shorts_script_telugu", content_data.get("shorts_script", "")),
+        long_script_english=content_data.get("long_script_english", content_data.get("long_script", "")),
     )
 
 
@@ -282,10 +282,7 @@ def run_pipeline(mode: str = "full") -> None:
                 logging.error("Video failed: %s", e)
                 video_path = None
 
-        try:
-            upload_result = upload_video_safe(video_path, content, thumbnail_path)
-        except Exception as e:
-            logging.error("Upload failed: %s", e)
+        upload_result = upload_video_safe(video_path, content, thumbnail_path)
 
         _write_latest_run({
             "work_dir": str(work_dir),
@@ -299,9 +296,9 @@ def run_pipeline(mode: str = "full") -> None:
 
         _write_status({
             "running": False,
-            "failed": False,
-            "status": "Completed",
-            "current_task": "Pipeline completed",
+            "failed": bool(upload_result and upload_result.startswith("upload-failed:")),
+            "status": "Completed with upload issue" if upload_result and upload_result.startswith("upload-failed:") else "Completed",
+            "current_task": upload_result if upload_result and upload_result.startswith("upload-failed:") else "Pipeline completed",
             "last_run_time": datetime.now().isoformat(),
             "mode": mode,
             "work_dir": str(work_dir),

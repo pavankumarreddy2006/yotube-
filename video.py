@@ -42,6 +42,15 @@ def _find_ffmpeg() -> str | None:
         if resolved:
             return resolved
 
+    try:
+        import imageio_ffmpeg
+
+        bundled = imageio_ffmpeg.get_ffmpeg_exe()
+        if bundled and Path(bundled).exists():
+            return bundled
+    except Exception as exc:
+        logger.warning("Bundled FFmpeg lookup failed: %s", exc)
+
     logger.warning("FFmpeg not found. Falling back to placeholder video output.")
     return None
 
