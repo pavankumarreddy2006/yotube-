@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -27,6 +27,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 DIST_DIR = BASE_DIR / "frontend" / "dist"
 LOG_FILE = BASE_DIR / "logs.txt"
+LEGACY_LOG_FILE = OUTPUT_DIR / "pipeline.log"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -49,7 +50,14 @@ def _load_status() -> dict[str, Any]:
 
 
 @app.get("/")
-async def root() -> JSONResponse:
+async def root():
+    if DIST_DIR.exists():
+        return FileResponse(DIST_DIR / "index.html")
+    return JSONResponse({"status": "ok", "message": "Telugu Sports Automation API running"})
+
+
+@app.get("/health")
+async def health() -> JSONResponse:
     return JSONResponse({"status": "ok", "message": "Telugu Sports Automation API running"})
 
 
@@ -86,12 +94,16 @@ async def logs() -> PlainTextResponse:
     try:
         return PlainTextResponse(LOG_FILE.read_text(encoding="utf-8"))
     except Exception:
-        return PlainTextResponse("No logs yet")
+        try:
+            return PlainTextResponse(LEGACY_LOG_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return PlainTextResponse("No logs yet")
 
+
+app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
 if DIST_DIR.exists():
-    app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
-    app.mount("/", StaticFiles(directory=str(DIST_DIR), html=True), name="frontend")
+    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="frontend-assets")
 else:
     @app.get("/dashboard")
     async def dashboard() -> JSONResponse:

@@ -17,14 +17,18 @@ def setup_logging(log_path: str | Path | None = None) -> None:
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
 
     root = logging.getLogger()
-    if root.handlers:
-        root.setLevel(logging.INFO)
-        return
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
 
     logging.basicConfig(
         filename=str(resolved_path),
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
+        force=True,
     )
 
 
