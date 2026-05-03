@@ -59,8 +59,8 @@ export function normalizeDecision(payload) {
 export function normalizeContent(payload) {
   return {
     hook: payload?.hook || "",
-    shortsScript: payload?.shorts_script || payload?.shortsScript || "",
-    longScript: payload?.long_script || payload?.longScript || "",
+    shortsScript: payload?.shorts_script || payload?.shorts_script_telugu || payload?.shortsScript || "",
+    longScript: payload?.long_script || payload?.long_script_english || payload?.longScript || "",
     title: payload?.title || "",
     description: payload?.description || "",
     hashtags: toArray(payload?.hashtags, []),

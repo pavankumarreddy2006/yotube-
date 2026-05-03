@@ -24,7 +24,7 @@ def send_message(url: str, message: str) -> None:
 def send_telegram(message: str) -> None:
     if not settings.enable_notifications:
         return
-    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+    if not settings.has_telegram:
         logger.warning("Telegram credentials missing. Notification skipped.")
         return
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"

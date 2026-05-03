@@ -46,6 +46,18 @@ class Settings:
     enable_long_video: bool = _get_bool("ENABLE_LONG_VIDEO", True)
     public_visibility: str = os.getenv("YOUTUBE_PRIVACY_STATUS", "public")
 
+    @property
+    def has_openai(self) -> bool:
+        return bool(self.openai_api_key)
+
+    @property
+    def has_youtube_upload(self) -> bool:
+        return bool(self.youtube_client_id and self.youtube_client_secret and self.youtube_refresh_token)
+
+    @property
+    def has_telegram(self) -> bool:
+        return bool(self.telegram_bot_token and self.telegram_chat_id)
+
 
 settings = Settings()
 

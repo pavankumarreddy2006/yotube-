@@ -78,6 +78,13 @@ npm run dev
 
 `render.yaml` installs Python dependencies, builds the frontend, and serves the FastAPI app with Uvicorn.
 
+For Render, set these environment variables explicitly if you want a fully green pipeline:
+
+- `ENABLE_UPLOAD=false` unless YouTube OAuth values are configured
+- `ENABLE_NOTIFICATIONS=false` unless Telegram values are configured
+- `ENABLE_VOICE=false` if outbound TTS access is not available
+- `OPENAI_API_KEY` only if you want LLM-generated copy; otherwise the app uses local fallback templates
+
 ## Notes
 
 - Generated output is stored in `output/`.

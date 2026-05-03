@@ -155,6 +155,14 @@ def _build_notifications(upload_result: str | None, work_dir: Path) -> list[dict
     return items
 
 
+def _should_generate_voice() -> bool:
+    return settings.enable_voice
+
+
+def _should_attempt_upload() -> bool:
+    return settings.enable_upload and settings.has_youtube_upload
+
+
 def run_pipeline(mode: str = "full") -> None:
     logging.info("Pipeline started")
 
@@ -188,7 +196,7 @@ def run_pipeline(mode: str = "full") -> None:
             if work_dir_value:
                 work_dir = Path(str(work_dir_value))
 
-            upload_result = upload_video_safe(video_path, content, thumbnail_path)
+            upload_result = upload_video_safe(video_path, content, thumbnail_path) if _should_attempt_upload() else "upload-skipped-missing-credentials"
             _write_latest_run({
                 "work_dir": str(work_dir),
                 "title": content.title,
@@ -270,11 +278,14 @@ def run_pipeline(mode: str = "full") -> None:
                 logging.error("Thumbnail failed: %s", e)
                 thumbnail_path = None
 
-            try:
-                audio_path = generate_voice(content, work_dir)
-            except Exception as e:
-                logging.error("Voice failed: %s", e)
-                audio_path = None
+            if _should_generate_voice():
+                try:
+                    audio_path = generate_voice(content, work_dir)
+                except Exception as e:
+                    logging.error("Voice failed: %s", e)
+                    audio_path = None
+            else:
+                logger.info("Voice generation skipped by configuration")
 
             try:
                 video_path = create_video(audio_path, work_dir)
@@ -282,7 +293,7 @@ def run_pipeline(mode: str = "full") -> None:
                 logging.error("Video failed: %s", e)
                 video_path = None
 
-        upload_result = upload_video_safe(video_path, content, thumbnail_path)
+        upload_result = upload_video_safe(video_path, content, thumbnail_path) if _should_attempt_upload() else "upload-skipped-missing-credentials"
 
         _write_latest_run({
             "work_dir": str(work_dir),

@@ -32,9 +32,15 @@ def upload_video(
     if not settings.enable_upload:
         logger.info("Upload disabled. Skipping YouTube upload.")
         return "upload-disabled"
-    if not (settings.youtube_client_id and settings.youtube_client_secret and settings.youtube_refresh_token):
+    if not settings.has_youtube_upload:
         logger.warning("YouTube credentials missing. Skipping upload.")
         return "upload-skipped-missing-credentials"
+    if not Path(str(video_path)).exists():
+        logger.warning("Video file missing. Skipping upload for %s", video_path)
+        return "upload-skipped-missing-video"
+    if not Path(str(thumbnail_path)).exists():
+        logger.warning("Thumbnail file missing. Skipping upload for %s", thumbnail_path)
+        return "upload-skipped-missing-thumbnail"
 
     # Build OAuth credentials from the saved refresh token and refresh them.
     # This allows uploading without needing the user to log in again every run.

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -187,7 +187,12 @@ async def get_decision() -> JSONResponse:
 @app.get("/content")
 async def get_content() -> JSONResponse:
     latest_content = _latest_content_payload()
-    return JSONResponse(latest_content.get("content", {}))
+    content = latest_content.get("content", {}) or {}
+    payload = dict(content)
+    payload.setdefault("shorts_script", content.get("shorts_script_telugu", ""))
+    payload.setdefault("long_script", content.get("long_script_english", ""))
+    payload.setdefault("hashtags", content.get("hashtags", []))
+    return JSONResponse(payload)
 
 
 @app.get("/run")
@@ -243,9 +248,22 @@ app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 if DIST_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="frontend-assets")
 
+    def _serve_frontend() -> FileResponse:
+        return FileResponse(DIST_DIR / "index.html")
+
     @app.get("/dashboard")
     async def dashboard() -> FileResponse:
-        return FileResponse(DIST_DIR / "index.html")
+        return _serve_frontend()
+
+    @app.get("/{full_path:path}")
+    async def frontend_routes(full_path: str) -> FileResponse:
+        if full_path.startswith(("health", "status", "news", "decision", "content", "run", "retry", "upload", "logs", "output", "assets")):
+            raise HTTPException(status_code=404, detail="Not found")
+
+        candidate = DIST_DIR / full_path
+        if full_path and candidate.exists() and candidate.is_file():
+            return FileResponse(candidate)
+        return _serve_frontend()
 else:
     @app.get("/dashboard")
     async def dashboard() -> JSONResponse:
