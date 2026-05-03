@@ -70,16 +70,21 @@ def _write_placeholder_video(output_path: str | Path, background_path: str | Pat
 
 def build_video(
     *,
-    audio_path: str | Path,
+    audio_path: str | Path | None,
     output_path: str | Path,
     background_path: str | Path,
     vertical: bool,
 ) -> str:
     width, height = (1080, 1920) if vertical else (1920, 1080)
-    safe_audio_path = str(audio_path)
     safe_output_path = str(output_path)
     safe_background_path = ensure_background_video(str(background_path), (width, height))
     ffmpeg = _find_ffmpeg()
+
+    if not audio_path or not Path(str(audio_path)).exists():
+        logger.warning("Audio track missing. Using placeholder video output.")
+        return _write_placeholder_video(safe_output_path, safe_background_path)
+
+    safe_audio_path = str(audio_path)
 
     if ffmpeg is None:
         return _write_placeholder_video(safe_output_path, safe_background_path)

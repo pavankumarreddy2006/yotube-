@@ -89,10 +89,8 @@ def generate_voice(content: ContentPackage, work_dir: Path) -> str | None:
 
 
 def create_video(audio_path: str | None, work_dir: Path) -> str | None:
-    if not audio_path:
-        return None
     return build_video(
-        audio_path=str(audio_path),
+        audio_path=audio_path,
         output_path=str(work_dir / "shorts.mp4"),
         background_path=str(settings.background_video_vertical),
         vertical=True,

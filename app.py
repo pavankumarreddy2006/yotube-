@@ -22,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = get_logger(__name__)
-app = FastAPI(title="Telugu Sports Automation Dashboard")
+app = FastAPI(title="Telugu Sports Automation Web Application")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 DIST_DIR = BASE_DIR / "frontend" / "dist"
@@ -267,4 +267,4 @@ if DIST_DIR.exists():
 else:
     @app.get("/dashboard")
     async def dashboard() -> JSONResponse:
-        return JSONResponse({"message": "Frontend not built. Pipeline works via API."})
+    return JSONResponse({"message": "Frontend not built yet. The web application backend is running through the API."})

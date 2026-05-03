@@ -4,7 +4,7 @@ This project combines a FastAPI backend, a React dashboard, and a resilient cont
 
 ## Main files
 
-- `app.py`: FastAPI app and dashboard endpoints
+- `app.py`: FastAPI web application and dashboard endpoints
 - `main.py`: pipeline runner
 - `data.py`: topic collection and fallback stories
 - `content.py`: content generation and fallback templates
@@ -76,17 +76,17 @@ npm run dev
 
 ## Deployment
 
-`render.yaml` installs Python dependencies, builds the frontend, and serves the FastAPI app with Uvicorn.
+`render.yaml` installs Python dependencies, builds the frontend, and serves the FastAPI web application with Uvicorn.
 
 For Render, set these environment variables explicitly if you want a fully green pipeline:
 
 - `ENABLE_UPLOAD=false` unless YouTube OAuth values are configured
 - `ENABLE_NOTIFICATIONS=false` unless Telegram values are configured
 - `ENABLE_VOICE=false` if outbound TTS access is not available
-- `OPENAI_API_KEY` only if you want LLM-generated copy; otherwise the app uses local fallback templates
+- `OPENAI_API_KEY` only if you want LLM-generated copy; otherwise the web application uses local fallback templates
 
 ## Notes
 
 - Generated output is stored in `output/`.
-- The app falls back to local content when upstream providers fail.
+- The web application falls back to local content when upstream providers fail.
 - If upload is disabled, assets are still generated locally.

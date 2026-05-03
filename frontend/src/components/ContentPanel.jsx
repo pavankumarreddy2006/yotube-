@@ -6,8 +6,21 @@ import EmptyState from "./shared/EmptyState";
 export default function ContentPanel({ content }) {
   const [copiedKey, setCopiedKey] = useState("");
 
-  function handleCopy(key, value) {
-    navigator.clipboard.writeText(value);
+  async function handleCopy(key, value) {
+    const text = value || "";
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const input = document.createElement("textarea");
+      input.value = text;
+      input.setAttribute("readonly", "");
+      input.style.position = "absolute";
+      input.style.left = "-9999px";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
     setCopiedKey(key);
     window.setTimeout(() => setCopiedKey(""), 1500);
   }
