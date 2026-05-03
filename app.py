@@ -267,4 +267,4 @@ if DIST_DIR.exists():
 else:
     @app.get("/dashboard")
     async def dashboard() -> JSONResponse:
-    return JSONResponse({"message": "Frontend not built yet. The web application backend is running through the API."})
+        return JSONResponse({"message": "Frontend not built yet. The web application backend is running through the API."})
