@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from content import generate_custom_script, normalize_language
-from main import _cleanup_old_artifacts, run_pipeline_logic
+from main import PIPELINE_LOCK, _cleanup_old_artifacts, run_pipeline_logic
 from settings import BASE_DIR, OUTPUT_DIR, settings
 from utils import get_logger, load_json, setup_logging
 
@@ -206,7 +206,7 @@ def _build_news_payload() -> dict[str, Any]:
 
 def _launch_pipeline(mode: str, language: str) -> dict[str, str]:
     status = _load_status()
-    if status.get("running"):
+    if status.get("running") or PIPELINE_LOCK.locked():
         raise HTTPException(status_code=409, detail="Automation is already running")
     worker = threading.Thread(
         target=run_pipeline_logic,

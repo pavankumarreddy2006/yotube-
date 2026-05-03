@@ -1,28 +1,36 @@
+function formatDateTime(value) {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleString();
+}
+
 export function normalizeStatus(payload) {
+  const running = Boolean(payload?.running);
+  const failed = Boolean(payload?.failed);
   const rawStatus = String(payload?.status || "").toLowerCase();
-  const rawStage = String(payload?.current_stage || "").toLowerCase();
-  const normalizedStatus = payload?.failed
-    ? "Error"
-    : rawStatus.includes("upload")
-      ? "Uploading"
-      : payload?.running
-        ? "Running"
-        : rawStatus.includes("complete")
-          ? "Completed"
-          : "Idle";
+  const normalizedStatus = failed ? "failed" : running ? "running" : rawStatus.includes("complete") ? "completed" : "idle";
 
   return {
-    running: Boolean(payload?.running),
-    failed: Boolean(payload?.failed),
+    running,
+    failed,
     status: normalizedStatus,
-    currentStage: rawStage || (normalizedStatus === "Completed" ? "completed" : normalizedStatus.toLowerCase()),
+    statusLabel: failed ? "Failed" : running ? "Running" : normalizedStatus === "completed" ? "Completed" : "Idle",
+    currentStage: payload?.current_stage || "",
     currentTask: payload?.current_task || "Waiting for next automation run",
+    progressLabel: payload?.progress_label || payload?.status || "Idle",
     lastRunTime: payload?.last_run_time || "",
+    lastRunTimeLabel: formatDateTime(payload?.last_run_time),
     language: payload?.language || "te",
     languageLabel: payload?.language_label || (payload?.language === "en" ? "English" : "Telugu"),
     previewItems: Array.isArray(payload?.preview_items) ? payload.preview_items : [],
     youtubeLinks: Array.isArray(payload?.youtube_links) ? payload.youtube_links : [],
     thumbnailUrl: payload?.thumbnail_url || "",
+    thumbnailText: payload?.thumbnail_text || "",
     selectedTopic: payload?.selected_topic || "",
     selectedTopicSummary: payload?.selected_topic_summary || "",
   };
@@ -37,6 +45,7 @@ export function normalizeNews(payload) {
     summary: item?.summary || "No summary available.",
     source: item?.source || "system",
     category: item?.category || item?.topic || "Sports",
+    publishedAt: formatDateTime(item?.published_at),
   }));
 }
 
@@ -48,10 +57,23 @@ export function normalizeLogs(payload) {
     return {
       id: item?.id || `log-${index}`,
       timestamp: item?.timestamp || "",
+      timestampLabel: formatDateTime(item?.timestamp) || "--",
       level,
       message,
     };
   });
+}
+
+export function normalizeConfig(payload) {
+  const languages = Array.isArray(payload?.languages) ? payload.languages : [];
+  const defaultLanguage = payload?.default_language || "te";
+  return {
+    defaultLanguage,
+    defaultLanguageLabel: defaultLanguage === "en" ? "English" : "Telugu",
+    dailyRunTime: payload?.daily_run_time || "",
+    dailyRunnerEnabled: Boolean(payload?.daily_runner_enabled),
+    languages,
+  };
 }
 
 function inferLogLevel(input) {

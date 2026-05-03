@@ -1,31 +1,54 @@
-import axios from "axios";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "",
-  timeout: 15000,
-});
+async function request(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
 
-export async function fetchStatus() {
-  const { data } = await api.get("/status");
-  return data;
+  const isJson = response.headers.get("content-type")?.includes("application/json");
+  const payload = isJson ? await response.json() : await response.text();
+
+  if (!response.ok) {
+    const message =
+      (typeof payload === "object" && payload?.detail) ||
+      (typeof payload === "string" && payload) ||
+      `Request failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  return payload;
 }
 
-export async function fetchNews() {
-  const { data } = await api.get("/news");
-  return data;
+export function fetchStatus() {
+  return request("/status");
 }
 
-export async function fetchLogs() {
-  const { data } = await api.get("/logs");
-  return data;
+export function fetchNews() {
+  return request("/news");
 }
 
-export async function startAutomation(language) {
-  const { data } = await api.post("/start", { language, mode: "full" });
-  return data;
+export function fetchLogs() {
+  return request("/logs");
 }
 
-export async function askSportsAi(payload) {
-  const { data } = await api.post("/ask", payload);
-  return data;
+export function fetchConfig() {
+  return request("/config");
+}
+
+export function startAutomation(language) {
+  return request("/start", {
+    method: "POST",
+    body: JSON.stringify({ language, mode: "full" }),
+  });
+}
+
+export function askSportsAi(payload) {
+  return request("/ask", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
