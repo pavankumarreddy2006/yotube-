@@ -33,6 +33,7 @@ class Settings:
     telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    default_language: str = os.getenv("DEFAULT_LANGUAGE", "te")
     ffmpeg_path: str = os.getenv("FFMPEG_PATH", "ffmpeg")
     ffprobe_path: str = os.getenv("FFPROBE_PATH", "ffprobe")
     background_video_vertical: str = os.getenv("BACKGROUND_VIDEO_VERTICAL", str(ASSETS_DIR / "background_vertical.mp4"))

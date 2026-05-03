@@ -20,9 +20,10 @@ SPORTS_KEYWORDS = [
     "Virat Kohli",
     "Rohit Sharma",
     "MS Dhoni",
-    "Telugu sports",
     "cricket score",
     "football transfer",
+    "tennis grand slam",
+    "olympics qualifiers",
 ]
 
 
@@ -32,6 +33,7 @@ FALLBACK_STORIES = [
         "summary": "Focus is on form, key players, pressure moments, and what fans are expecting next.",
         "source": "fallback",
         "topic": "india cricket",
+        "category": "Cricket",
         "players": ["Virat Kohli", "Rohit Sharma"],
         "tournament": "international cricket",
         "is_india": True,
@@ -42,10 +44,38 @@ FALLBACK_STORIES = [
         "summary": "Points table pressure, star player momentum, and huge interest around the next fixture.",
         "source": "fallback",
         "topic": "ipl",
+        "category": "Cricket",
         "players": ["MS Dhoni"],
         "tournament": "IPL",
         "is_india": False,
         "is_thriller": True,
+    },
+    {
+        "title": "Football Transfer Race Intensifies Across Europe",
+        "summary": "Top clubs are moving aggressively, with fans tracking the latest transfer twists and tactical upgrades.",
+        "source": "fallback",
+        "topic": "football transfer",
+        "category": "Football",
+        "players": [],
+        "tournament": "club football",
+    },
+    {
+        "title": "Grand Slam Build-Up Puts Tennis Stars In Focus",
+        "summary": "Training rhythm, form, and draw expectations are building ahead of the next major tennis test.",
+        "source": "fallback",
+        "topic": "tennis",
+        "category": "Tennis",
+        "players": [],
+        "tournament": "Grand Slam",
+    },
+    {
+        "title": "Olympic Qualification Battles Bring Fresh Momentum",
+        "summary": "Athletes across disciplines are pushing for qualification, with every result carrying major Olympic stakes.",
+        "source": "fallback",
+        "topic": "olympics",
+        "category": "Olympics",
+        "players": [],
+        "tournament": "Olympics",
     },
 ]
 
@@ -56,6 +86,7 @@ class TopicCandidate:
     summary: str
     source: str
     topic: str
+    category: str = "Sports"
     players: list[str] = field(default_factory=list)
     tournament: str = ""
     score_details: str = ""
@@ -100,6 +131,7 @@ def fetch_news() -> list[TopicCandidate]:
                 summary=description,
                 source="newsapi",
                 topic=title,
+                category=_categorize_text(text),
                 players=_extract_players(text),
                 tournament="IPL" if "ipl" in text else "",
                 is_india="india" in text or "team india" in text,
@@ -139,6 +171,7 @@ def fetch_cricket_updates() -> list[TopicCandidate]:
                 summary=status or "Latest cricket score update.",
                 source="cricapi",
                 topic=name,
+                category="Cricket",
                 players=_extract_players(text),
                 tournament="IPL" if "ipl" in text else (match.get("matchType", "") or ""),
                 score_details=score,
@@ -164,7 +197,7 @@ def fetch_trends() -> list[str]:
         return list(dict.fromkeys(term for term in trend_terms if term))
     except Exception as exc:
         logger.warning("Trend detection failed: %s", exc)
-        return ["India cricket", "IPL", "Virat Kohli"]
+        return ["India cricket", "IPL", "football transfer", "tennis grand slam", "olympics"]
 
 
 def fetch_all_candidates() -> tuple[list[TopicCandidate], list[str]]:
@@ -242,3 +275,16 @@ def _dedupe_candidates(candidates: list[TopicCandidate]) -> list[TopicCandidate]
         seen.add(key)
         unique.append(item)
     return unique
+
+
+def _categorize_text(text: str) -> str:
+    lowered = text.lower()
+    if any(term in lowered for term in ["cricket", "ipl", "odi", "test match", "t20"]):
+        return "Cricket"
+    if any(term in lowered for term in ["football", "soccer", "premier league", "transfer"]):
+        return "Football"
+    if any(term in lowered for term in ["tennis", "atp", "wta", "grand slam"]):
+        return "Tennis"
+    if "olympic" in lowered:
+        return "Olympics"
+    return "Sports"

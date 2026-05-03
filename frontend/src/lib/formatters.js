@@ -15,68 +15,76 @@ export function formatTimestamp(value) {
 }
 
 export function toArray(value, fallback = []) {
-  if (Array.isArray(value)) {
-    return value;
-  }
-  return fallback;
+  return Array.isArray(value) ? value : fallback;
 }
 
 export function normalizeStatus(payload) {
   return {
     running: Boolean(payload?.running),
     failed: Boolean(payload?.failed),
-    status: payload?.status || (payload?.failed ? "Failed" : payload?.running ? "Running" : "Idle"),
+    status: payload?.status || (payload?.failed ? "Failed" : payload?.running ? "Processing" : "Idle"),
     currentTask: payload?.current_task || "Waiting for next run",
-    lastRunTime: payload?.last_run_time || payload?.lastRunTime || "",
+    currentStage: payload?.current_stage || "idle",
+    progressLabel: payload?.progress_label || payload?.status || "Idle",
+    lastRunTime: payload?.last_run_time || "",
     notifications: toArray(payload?.notifications, []),
-    thumbnailUrl: payload?.thumbnail_url || payload?.thumbnailUrl || "",
-    thumbnailText: payload?.thumbnail_text || payload?.thumbnailText || ""
+    thumbnailUrl: payload?.thumbnail_url || "",
+    thumbnailText: payload?.thumbnail_text || "",
+    language: payload?.language || "te",
+    languageLabel: payload?.language_label || (payload?.language === "en" ? "English" : "Telugu"),
+    previewItems: toArray(payload?.preview_items, []),
+    youtubeLinks: toArray(payload?.youtube_links, []),
+    selectedTopic: payload?.selected_topic || "",
+    selectedTopicSummary: payload?.selected_topic_summary || ""
   };
 }
 
 export function normalizeNews(payload) {
-  const items = Array.isArray(payload) ? payload : payload?.items || payload?.news || [];
+  const items = Array.isArray(payload) ? payload : payload?.items || [];
   return items.map((item, index) => ({
     id: item?.id || `${index}-${item?.title || "headline"}`,
     title: item?.title || "Headline unavailable",
-    summary: item?.summary || item?.description || "No summary available.",
+    summary: item?.summary || "No summary available.",
     source: item?.source || "system",
     trending: Boolean(item?.trending || item?.is_trending),
-    publishedAt: item?.published_at || item?.publishedAt || "",
-    topic: item?.topic || ""
+    publishedAt: item?.published_at || "",
+    topic: item?.topic || "",
+    category: item?.category || "Sports"
   }));
 }
 
 export function normalizeDecision(payload) {
   return {
-    score: payload?.score ?? payload?.decision_score ?? 0,
-    action: payload?.action || payload?.decision || "SKIP",
-    reasons: toArray(payload?.reasons || payload?.reason, payload?.reason ? [payload.reason] : []),
-    selectedTopic: payload?.selected_topic || payload?.selectedTopic || "No topic selected"
+    score: payload?.score ?? 0,
+    action: payload?.action || "HOLD",
+    reasons: toArray(payload?.reasons, []),
+    selectedTopic: payload?.selected_topic || "No topic selected"
   };
 }
 
 export function normalizeContent(payload) {
   return {
     hook: payload?.hook || "",
-    shortsScript: payload?.shorts_script || payload?.shorts_script_telugu || payload?.shortsScript || "",
-    longScript: payload?.long_script || payload?.long_script_english || payload?.longScript || "",
+    shortsScript: payload?.shorts_script || "",
+    longScript: payload?.long_script || "",
     title: payload?.title || "",
     description: payload?.description || "",
     hashtags: toArray(payload?.hashtags, []),
-    thumbnailText: payload?.thumbnail_text || payload?.thumbnailText || ""
+    thumbnailText: payload?.thumbnail_text || "",
+    language: payload?.language || "te",
+    languageLabel: payload?.language_label || (payload?.language === "en" ? "English" : "Telugu"),
+    previewItems: toArray(payload?.preview_items, [])
   };
 }
 
 export function normalizeLogs(payload) {
-  const items = Array.isArray(payload) ? payload : payload?.items || payload?.logs || [];
+  const items = Array.isArray(payload) ? payload : payload?.items || [];
   return items.map((item, index) => {
     const message = typeof item === "string" ? item : item?.message || "Log entry unavailable";
-    const level = typeof item === "string" ? inferLogLevel(item) : (item?.level || inferLogLevel(message));
     return {
       id: item?.id || `${index}-${message.slice(0, 16)}`,
       timestamp: item?.timestamp || "",
-      level,
+      level: typeof item === "string" ? inferLogLevel(item) : item?.level || inferLogLevel(message),
       message
     };
   });
@@ -84,10 +92,10 @@ export function normalizeLogs(payload) {
 
 export function inferLogLevel(message) {
   const text = String(message).toLowerCase();
-  if (text.includes("error") || text.includes("failed") || text.includes("exception")) {
+  if (text.includes("error") || text.includes("failed")) {
     return "error";
   }
-  if (text.includes("retry") || text.includes("fix") || text.includes("attempt")) {
+  if (text.includes("retry") || text.includes("attempt")) {
     return "warning";
   }
   return "success";

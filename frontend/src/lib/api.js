@@ -2,8 +2,13 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "",
-  timeout: 10000
+  timeout: 15000
 });
+
+export async function fetchConfig() {
+  const { data } = await api.get("/config");
+  return data;
+}
 
 export async function fetchStatus() {
   const { data } = await api.get("/status");
@@ -30,17 +35,22 @@ export async function fetchLogs() {
   return data;
 }
 
-export async function triggerRun() {
-  const { data } = await api.post("/run");
+export async function triggerRun(language) {
+  const { data } = await api.post("/automation/start", { language, mode: "full" });
   return data;
 }
 
-export async function retryFailedTask() {
-  const { data } = await api.post("/retry");
+export async function retryFailedTask(language) {
+  const { data } = await api.post("/retry", { language, mode: "full" });
   return data;
 }
 
 export async function uploadAgain() {
   const { data } = await api.post("/upload");
+  return data;
+}
+
+export async function generateAiScript(payload) {
+  const { data } = await api.post("/ask-ai", payload);
   return data;
 }

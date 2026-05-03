@@ -1,4 +1,4 @@
-import { CheckCircle2, LoaderCircle, Siren, TimerReset } from "lucide-react";
+import { CheckCircle2, Globe2, LoaderCircle, Siren, TimerReset } from "lucide-react";
 import { formatTimestamp } from "../lib/formatters";
 import Card from "./Card";
 
@@ -11,22 +11,28 @@ export default function StatusPanel({ status }) {
       tone: status?.failed ? "text-danger" : status?.running ? "text-accent" : "text-success"
     },
     {
-      label: "Last Execution",
-      value: formatTimestamp(status?.lastRunTime),
-      icon: TimerReset,
+      label: "Current Stage",
+      value: status?.progressLabel || "Idle",
+      icon: LoaderCircle,
       tone: "text-slate-200"
     },
     {
-      label: "Current Task",
-      value: status?.currentTask || "No active task",
-      icon: LoaderCircle,
+      label: "Active Language",
+      value: status?.languageLabel || "Telugu",
+      icon: Globe2,
+      tone: "text-slate-200"
+    },
+    {
+      label: "Last Execution",
+      value: formatTimestamp(status?.lastRunTime),
+      icon: TimerReset,
       tone: "text-slate-200"
     }
   ];
 
   return (
-    <Card title="Status Panel" subtitle="Live system health and pipeline progression.">
-      <div className="grid gap-4 sm:grid-cols-3">
+    <Card title="Status Panel" subtitle="Live automation state, execution phase, and latest run context.">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -39,6 +45,18 @@ export default function StatusPanel({ status }) {
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-4">
+        <p className="subtle">Current Task</p>
+        <p className="mt-2 text-sm leading-6 text-white">{status?.currentTask || "No active task"}</p>
+        {status?.selectedTopic ? (
+          <>
+            <p className="subtle mt-4">Latest Selected Topic</p>
+            <p className="mt-2 text-sm font-medium leading-6 text-white">{status.selectedTopic}</p>
+            <p className="mt-1 text-sm leading-6 text-slate-300">{status.selectedTopicSummary || "Summary unavailable."}</p>
+          </>
+        ) : null}
       </div>
     </Card>
   );

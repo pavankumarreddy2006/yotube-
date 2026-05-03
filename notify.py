@@ -8,6 +8,18 @@ from utils import get_logger
 
 logger = get_logger(__name__)
 
+STAGE_LABELS = {
+    "started": "🚀 STARTED",
+    "news_fetched": "📰 NEWS FETCHED",
+    "script_ready": "📝 SCRIPT READY",
+    "voice_generated": "🎤 VOICE GENERATED",
+    "video_created": "🎬 VIDEO CREATED",
+    "uploading": "⬆️ UPLOADING",
+    "upload_success": "✅ UPLOAD SUCCESS",
+    "all_done": "🎉 ALL DONE",
+    "error": "❌ ERROR OCCURRED",
+}
+
 
 def send_message(url: str, message: str) -> None:
     response = requests.post(
@@ -34,9 +46,15 @@ def send_telegram(message: str) -> None:
         logger.warning("Telegram failed, skipping: %s", exc)
 
 
-def send_upload_success(title: str, youtube_link: str) -> None:
-    send_telegram(f"✅ Video uploaded successfully\nTitle: {title}\nLink: {youtube_link}")
+def send_stage_notification(stage: str, detail: str = "") -> None:
+    prefix = STAGE_LABELS.get(stage, stage.upper())
+    message = prefix if not detail else f"{prefix}\n{detail}"
+    send_telegram(message)
 
 
-def send_upload_failure(error_details: str) -> None:
-    send_telegram(f"❌ Upload failed\nError details: {error_details}")
+def send_upload_success(title: str, youtube_link: str, *, variant: str) -> None:
+    send_stage_notification("upload_success", f"{variant}\nTitle: {title}\nLink: {youtube_link}")
+
+
+def send_upload_failure(step_name: str, error_details: str) -> None:
+    send_stage_notification("error", f"Step: {step_name}\nError: {error_details}")

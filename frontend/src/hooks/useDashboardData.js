@@ -1,25 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  fetchConfig,
   fetchContent,
   fetchDecision,
   fetchLogs,
   fetchNews,
   fetchStatus,
+  generateAiScript,
   retryFailedTask,
   triggerRun,
   uploadAgain
 } from "../lib/api";
-import {
-  normalizeContent,
-  normalizeDecision,
-  normalizeLogs,
-  normalizeNews,
-  normalizeStatus
-} from "../lib/formatters";
+import { normalizeContent, normalizeDecision, normalizeLogs, normalizeNews, normalizeStatus } from "../lib/formatters";
 
 const REFRESH_INTERVAL = 8000;
 
 const initialState = {
+  config: null,
   status: null,
   news: [],
   decision: null,
@@ -28,11 +25,14 @@ const initialState = {
   loading: true,
   refreshing: false,
   error: "",
+  language: "te",
   actionState: {
     run: false,
     retry: false,
-    upload: false
-  }
+    upload: false,
+    askAi: false
+  },
+  askAiResult: null
 };
 
 export function useDashboardData() {
@@ -53,7 +53,8 @@ export function useDashboardData() {
     }));
 
     try {
-      const [statusData, newsData, decisionData, contentData, logsData] = await Promise.all([
+      const [configData, statusData, newsData, decisionData, contentData, logsData] = await Promise.all([
+        fetchConfig(),
         fetchStatus(),
         fetchNews(),
         fetchDecision(),
@@ -65,13 +66,16 @@ export function useDashboardData() {
         return;
       }
 
+      const normalizedStatus = normalizeStatus(statusData);
       setState((prev) => ({
         ...prev,
-        status: normalizeStatus(statusData),
+        config: configData,
+        status: normalizedStatus,
         news: normalizeNews(newsData),
         decision: normalizeDecision(decisionData),
         content: normalizeContent(contentData),
         logs: normalizeLogs(logsData),
+        language: prev.language || configData?.default_language || normalizedStatus.language || "te",
         loading: false,
         refreshing: false,
         error: ""
@@ -85,7 +89,7 @@ export function useDashboardData() {
         ...prev,
         loading: false,
         refreshing: false,
-        error: error?.response?.data?.message || error?.message || "Dashboard data could not be loaded."
+        error: error?.response?.data?.detail || error?.message || "Dashboard data could not be loaded."
       }));
     }
   }
@@ -93,10 +97,7 @@ export function useDashboardData() {
   async function handleAction(key, action) {
     setState((prev) => ({
       ...prev,
-      actionState: {
-        ...prev.actionState,
-        [key]: true
-      }
+      actionState: { ...prev.actionState, [key]: true }
     }));
 
     try {
@@ -108,10 +109,7 @@ export function useDashboardData() {
       }
       setState((prev) => ({
         ...prev,
-        actionState: {
-          ...prev.actionState,
-          [key]: false
-        }
+        actionState: { ...prev.actionState, [key]: false }
       }));
     }
   }
@@ -119,7 +117,6 @@ export function useDashboardData() {
   useEffect(() => {
     mounted.current = true;
     loadData();
-
     return () => {
       mounted.current = false;
     };
@@ -129,11 +126,9 @@ export function useDashboardData() {
     if (!liveRefresh) {
       return undefined;
     }
-
     const timer = window.setInterval(() => {
       loadData({ silent: true });
     }, REFRESH_INTERVAL);
-
     return () => window.clearInterval(timer);
   }, [liveRefresh]);
 
@@ -142,10 +137,19 @@ export function useDashboardData() {
       ...state,
       liveRefresh,
       setLiveRefresh,
+      setLanguage: (language) => setState((prev) => ({ ...prev, language })),
       refreshNow: () => loadData({ silent: true }),
-      runNow: () => handleAction("run", triggerRun),
-      retryNow: () => handleAction("retry", retryFailedTask),
-      uploadNow: () => handleAction("upload", uploadAgain)
+      runNow: () => handleAction("run", () => triggerRun(state.language)),
+      retryNow: () => handleAction("retry", () => retryFailedTask(state.language)),
+      uploadNow: () => handleAction("upload", uploadAgain),
+      askAi: (payload) =>
+        handleAction("askAi", async () => {
+          const result = await generateAiScript({ ...payload, language: state.language });
+          if (!mounted.current) {
+            return;
+          }
+          setState((prev) => ({ ...prev, askAiResult: result }));
+        })
     }),
     [liveRefresh, state]
   );
