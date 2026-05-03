@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -13,7 +14,7 @@ from content import ContentPackage, fallback_content, generate_content, normaliz
 from data import TopicCandidate, fallback_story_for_date, fetch_all_candidates, select_daily_highlights
 from notify import send_stage_notification, send_upload_failure, send_upload_success
 from scoring import ScoredTopic, choose_best_topic
-from settings import BASE_DIR, OUTPUT_DIR, settings
+from settings import BASE_DIR, OUTPUT_DIR, TEMP_DIR, settings
 from thumbnail import create_thumbnail
 from upload import upload_video
 from utils import dump_json, get_logger, load_json, setup_logging, slugify
@@ -81,6 +82,57 @@ def _write_status(update: dict[str, Any]) -> None:
 
 def _write_latest_run(payload: dict[str, Any]) -> None:
     dump_json(payload, LATEST_RUN_FILE)
+
+
+def _safe_remove_path(path: Path) -> None:
+    try:
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink()
+    except FileNotFoundError:
+        return
+    except Exception as exc:
+        logger.warning("Cleanup skipped for %s: %s", path, exc)
+
+
+def _cleanup_old_artifacts(*, keep_work_dir: str | Path | None = None) -> None:
+    if not OUTPUT_DIR.exists():
+        return
+
+    keep_count = max(1, settings.retain_run_artifacts)
+    keep_paths: set[Path] = set()
+    if keep_work_dir:
+        keep_paths.add(Path(str(keep_work_dir)).resolve())
+
+    latest_run = load_json(LATEST_RUN_FILE, default={}) or {}
+    latest_work_dir = latest_run.get("work_dir")
+    if latest_work_dir:
+        keep_paths.add(Path(str(latest_work_dir)).resolve())
+
+    run_dirs = sorted(
+        [item for item in OUTPUT_DIR.iterdir() if item.is_dir()],
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    )
+    for item in run_dirs[:keep_count]:
+        keep_paths.add(item.resolve())
+
+    preserved_files = {"pipeline_status.json", "latest_run.json"}
+    for item in OUTPUT_DIR.iterdir():
+        resolved = item.resolve()
+        if item.is_dir():
+            if resolved in keep_paths:
+                continue
+            _safe_remove_path(item)
+            continue
+        if item.name in preserved_files:
+            continue
+        _safe_remove_path(item)
+
+    if TEMP_DIR.exists():
+        for item in TEMP_DIR.iterdir():
+            _safe_remove_path(item)
 
 
 def _append_log(message: str, *, level: str = "info", stage: str | None = None) -> None:
@@ -348,6 +400,22 @@ def _artifact_url(path: str | None) -> str:
     return f"/output/{web_path}"
 
 
+def _topic_title(value: Any, fallback: str = "") -> str:
+    if isinstance(value, TopicCandidate):
+        return value.title
+    if isinstance(value, dict):
+        return str(value.get("title", fallback) or fallback)
+    return fallback
+
+
+def _topic_summary(value: Any, fallback: str = "") -> str:
+    if isinstance(value, TopicCandidate):
+        return value.summary
+    if isinstance(value, dict):
+        return str(value.get("summary", fallback) or fallback)
+    return fallback
+
+
 def _run_once(*, mode: str, language: str) -> None:
     selected_topic = _safe_topic()
     scored = _safe_scored_topic(selected_topic)
@@ -365,9 +433,12 @@ def _run_once(*, mode: str, language: str) -> None:
         shorts_video_path = latest_run.get("shorts_video") or latest_run.get("video") or None
         long_video_path = latest_run.get("long_video") or None
         thumbnail_path = latest_run.get("thumbnail") or None
+        selected_topic = latest_run.get("selected_topic") or selected_topic
         work_dir_value = latest_run.get("work_dir")
         if work_dir_value:
             work_dir = Path(str(work_dir_value))
+        if not shorts_video_path and not long_video_path:
+            raise RuntimeError("No generated video artifacts found for upload_only mode.")
         shorts_upload_result, long_upload_result = _attempt_uploads(
             shorts_video_path=shorts_video_path,
             long_video_path=long_video_path,
@@ -583,8 +654,8 @@ def _finalize_success(
             "language": language,
             "language_label": content.language_label,
             "work_dir": str(work_dir),
-            "selected_topic": selected_topic.title,
-            "selected_topic_summary": selected_topic.summary,
+            "selected_topic": _topic_title(selected_topic, content.title),
+            "selected_topic_summary": _topic_summary(selected_topic),
             "thumbnail_url": thumbnail_path,
             "thumbnail_text": content.thumbnail_text,
             "preview_items": preview_items,
@@ -592,6 +663,7 @@ def _finalize_success(
             "headline_signature": headline_signature,
         }
     )
+    _cleanup_old_artifacts(keep_work_dir=work_dir)
     _append_notification("Automation run completed successfully.")
     if shorts_upload_result and shorts_upload_result.startswith("https://"):
         send_upload_success(content.title, shorts_upload_result, variant="Shorts")

@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from content import generate_custom_script, normalize_language
-from main import run_pipeline_logic
+from main import _cleanup_old_artifacts, run_pipeline_logic
 from settings import BASE_DIR, OUTPUT_DIR, settings
 from utils import get_logger, load_json, setup_logging
 
@@ -85,6 +85,125 @@ def _read_log_text() -> str:
         return LOG_FILE.read_text(encoding="utf-8")
     except Exception:
         return ""
+
+
+def _fallback_dashboard_html() -> str:
+    status = _load_status()
+    current_status = status.get("status", "Idle")
+    current_task = status.get("current_task", "Waiting for next run")
+    language = status.get("language", settings.default_language)
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Sports Automation</title>
+    <style>
+      :root {{ color-scheme: dark; }}
+      * {{ box-sizing: border-box; }}
+      body {{
+        margin: 0;
+        min-height: 100vh;
+        font-family: Arial, sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(34, 211, 238, 0.16), transparent 28%),
+          linear-gradient(180deg, #09111d 0%, #111a2e 100%);
+        color: #e2e8f0;
+        padding: 24px;
+      }}
+      .card {{
+        max-width: 920px;
+        margin: 0 auto;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 24px;
+        background: rgba(15, 23, 42, 0.88);
+        padding: 24px;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+      }}
+      .pill {{
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+      }}
+      .row {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }}
+      button, select {{
+        height: 46px;
+        border-radius: 999px;
+        border: 0;
+        padding: 0 18px;
+        font-size: 14px;
+      }}
+      select {{
+        background: rgba(255, 255, 255, 0.08);
+        color: white;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }}
+      button {{
+        background: linear-gradient(135deg, #2563eb 0%, #22c55e 100%);
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }}
+      pre {{
+        white-space: pre-wrap;
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(2, 6, 23, 0.68);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+      }}
+      a {{ color: #67e8f9; }}
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <p class="pill">Frontend build missing, fallback mode is active</p>
+      <h1>AI Sports Automation Dashboard</h1>
+      <p>The React build was not found on this deployment, but the API and automation controls are still available.</p>
+      <div class="row">
+        <div class="pill">Status: {current_status}</div>
+        <div class="pill">Task: {current_task}</div>
+      </div>
+      <div class="row">
+        <select id="lang">
+          <option value="te" {"selected" if language == "te" else ""}>Telugu</option>
+          <option value="en" {"selected" if language == "en" else ""}>English</option>
+        </select>
+        <button onclick="startRun()">Start Automation</button>
+        <button onclick="refreshStatus()">Refresh Status</button>
+      </div>
+      <p><a href="/status" target="_blank" rel="noreferrer">Open /status</a> | <a href="/logs" target="_blank" rel="noreferrer">Open /logs</a></p>
+      <pre id="result">Waiting for action...</pre>
+    </div>
+    <script>
+      async function refreshStatus() {{
+        const response = await fetch('/status');
+        const data = await response.json();
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+      }}
+
+      async function startRun() {{
+        const language = document.getElementById('lang').value;
+        const response = await fetch('/start', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify({{ language, mode: 'full' }})
+        }});
+        const data = await response.json();
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+      }}
+    </script>
+  </body>
+</html>
+"""
 
 
 def _load_logs() -> list[dict[str, str]]:
@@ -242,6 +361,7 @@ def _ensure_scheduler_started() -> None:
 
 @app.on_event("startup")
 async def on_startup() -> None:
+    _cleanup_old_artifacts()
     _ensure_scheduler_started()
 
 
@@ -249,7 +369,7 @@ async def on_startup() -> None:
 async def root():
     if DIST_DIR.exists():
         return FileResponse(DIST_DIR / "index.html")
-    raise HTTPException(status_code=503, detail="Frontend build not found")
+    return HTMLResponse(_fallback_dashboard_html())
 
 
 @app.get("/health")
@@ -401,5 +521,5 @@ if DIST_DIR.exists():
         return _serve_frontend()
 else:
     @app.get("/dashboard")
-    async def dashboard() -> JSONResponse:
-        raise HTTPException(status_code=503, detail="Frontend build not found")
+    async def dashboard() -> HTMLResponse:
+        return HTMLResponse(_fallback_dashboard_html())

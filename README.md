@@ -100,6 +100,13 @@ npm run dev
 
 `render.yaml` installs Python dependencies, builds the frontend, serves the FastAPI web application with Uvicorn, and runs a daily cron job for `python main.py full`.
 
+The included Render config is tuned for the free 512 MB instance profile:
+
+- runtime artifacts are written to `/tmp/youtube-automation/...`
+- only the latest run is retained
+- long-form video is disabled by default
+- background music is disabled by default to keep temporary media smaller
+
 For Render, set these environment variables explicitly if you want a fully green pipeline:
 
 - `ENABLE_UPLOAD=false` unless YouTube OAuth values are configured
@@ -107,6 +114,9 @@ For Render, set these environment variables explicitly if you want a fully green
 - `ENABLE_VOICE=false` if outbound TTS access is not available
 - `ENABLE_LONG_VIDEO=false` if you only want Shorts uploads
 - `OPENAI_API_KEY` only if you want LLM-generated copy; otherwise the web application uses local fallback templates
+- `OUTPUT_DIR=/tmp/youtube-automation/output`
+- `TEMP_DIR=/tmp/youtube-automation/tmp`
+- `RETAIN_RUN_ARTIFACTS=1`
 
 ## Notes
 

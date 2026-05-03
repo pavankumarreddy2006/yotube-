@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = BASE_DIR / "output"
-ASSETS_DIR = BASE_DIR / "assets"
-TEMP_DIR = BASE_DIR / "tmp"
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", str(BASE_DIR / "output"))).expanduser()
+ASSETS_DIR = Path(os.getenv("ASSETS_DIR", str(BASE_DIR / "assets"))).expanduser()
+TEMP_DIR = Path(os.getenv("TEMP_DIR", str(BASE_DIR / "tmp"))).expanduser()
 
 
 def _get_bool(name: str, default: bool = False) -> bool:
@@ -59,6 +59,7 @@ class Settings:
     enable_background_music: bool = _get_bool("ENABLE_BACKGROUND_MUSIC", True)
     enable_quality_checks: bool = _get_bool("ENABLE_QUALITY_CHECKS", True)
     public_visibility: str = os.getenv("YOUTUBE_PRIVACY_STATUS", "public")
+    retain_run_artifacts: int = max(1, int(os.getenv("RETAIN_RUN_ARTIFACTS", "1")))
 
     @property
     def has_openai(self) -> bool:
