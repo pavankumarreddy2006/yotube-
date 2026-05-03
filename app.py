@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import subprocess
-import sys
 import threading
 import time
 from datetime import datetime
@@ -15,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from content import generate_custom_script, normalize_language
+from main import run_pipeline_logic
 from settings import BASE_DIR, OUTPUT_DIR, settings
 from utils import get_logger, load_json, setup_logging
 
@@ -131,8 +130,20 @@ def _load_status() -> dict[str, Any]:
     status["thumbnail_url"] = _to_output_url(status.get("thumbnail_url")) or _to_output_url(latest_run.get("thumbnail"))
     status.setdefault("thumbnail_text", content.get("thumbnail_text", ""))
     status.setdefault("notifications", [])
-    status.setdefault("preview_items", [])
-    status.setdefault("youtube_links", [])
+    if not status.get("preview_items"):
+        preview_items: list[dict[str, str]] = []
+        if latest_run.get("shorts_video"):
+            preview_items.append({"label": "Shorts Preview", "url": _to_output_url(latest_run.get("shorts_video")), "variant": "short"})
+        if latest_run.get("long_video"):
+            preview_items.append({"label": "Long Video Preview", "url": _to_output_url(latest_run.get("long_video")), "variant": "long"})
+        status["preview_items"] = [item for item in preview_items if item.get("url")]
+    if not status.get("youtube_links"):
+        youtube_links: list[dict[str, str]] = []
+        if str(latest_run.get("shorts_upload", "")).startswith("https://"):
+            youtube_links.append({"label": "Shorts", "url": latest_run["shorts_upload"]})
+        if str(latest_run.get("long_upload", "")).startswith("https://"):
+            youtube_links.append({"label": "Long Video", "url": latest_run["long_upload"]})
+        status["youtube_links"] = youtube_links
     status.setdefault("selected_topic", selected_topic.get("title", latest_run.get("title", "")))
     status.setdefault("selected_topic_summary", selected_topic.get("summary", ""))
     return status
@@ -179,7 +190,13 @@ def _launch_pipeline(mode: str, language: str) -> dict[str, str]:
     status = _load_status()
     if status.get("running"):
         raise HTTPException(status_code=409, detail="Automation is already running")
-    subprocess.Popen([sys.executable, "main.py", mode, language], cwd=str(BASE_DIR))
+    worker = threading.Thread(
+        target=run_pipeline_logic,
+        kwargs={"mode": mode, "language": language},
+        daemon=True,
+        name=f"pipeline-{mode}-{language}",
+    )
+    worker.start()
     return {"status": "pipeline started", "mode": mode, "language": language}
 
 
@@ -194,7 +211,13 @@ def _scheduler_loop() -> None:
                 status = _load_status()
                 if current_time == settings.daily_run_time and not status.get("running") and not already_ran_today:
                     logger.info("Starting scheduled automation run for %s", settings.daily_run_time)
-                    subprocess.Popen([sys.executable, "main.py", "full", settings.default_language], cwd=str(BASE_DIR))
+                    worker = threading.Thread(
+                        target=run_pipeline_logic,
+                        kwargs={"mode": "full", "language": settings.default_language},
+                        daemon=True,
+                        name="scheduled-pipeline-runner",
+                    )
+                    worker.start()
                     time.sleep(65)
                     continue
         except Exception as exc:

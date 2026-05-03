@@ -7,14 +7,14 @@ import EmptyState from "./shared/EmptyState";
 const filters = [
   { key: "all", label: "All" },
   { key: "error", label: "Errors" },
-  { key: "warning", label: "Fix Attempts" },
+  { key: "warning", label: "Warnings" },
   { key: "success", label: "Success" }
 ];
 
 const toneMap = {
-  error: "border-danger/20 bg-danger/10 text-danger",
-  warning: "border-warning/20 bg-warning/10 text-warning",
-  success: "border-success/20 bg-success/10 text-success"
+  error: "border-rose-400/20 bg-rose-400/10 text-rose-200",
+  warning: "border-amber-400/20 bg-amber-400/10 text-amber-200",
+  success: "border-sky-400/20 bg-sky-400/10 text-sky-200"
 };
 
 export default function LogsPanel({ logs }) {
@@ -38,18 +38,16 @@ export default function LogsPanel({ logs }) {
 
   return (
     <Card
-      title="Logs Panel"
-      subtitle="Real-time operational history with severity highlighting."
+      title="Live Logs"
+      subtitle="Terminal-style stream of the automation engine."
       action={
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">
-          <ListFilter className="h-4 w-4" />
-          <select
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            className="bg-transparent outline-none"
-          >
+        <div className="select-wrap max-w-[180px]">
+          <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+            <ListFilter className="h-4 w-4" />
+          </div>
+          <select value={filter} onChange={(event) => setFilter(event.target.value)} className="dashboard-select pl-11">
             {filters.map((item) => (
-              <option key={item.key} value={item.key} className="bg-panel text-white">
+              <option key={item.key} value={item.key} className="bg-slate-950 text-white">
                 {item.label}
               </option>
             ))}
@@ -61,17 +59,20 @@ export default function LogsPanel({ logs }) {
         <EmptyState
           icon={TerminalSquare}
           title="No logs to display"
-          description="Once the system starts producing logs, they will stream here automatically."
+          description="Once tasks start running, color-coded log events will stream into this console."
         />
       ) : (
-        <div ref={containerRef} className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+        <div
+          ref={containerRef}
+          className="custom-scroll max-h-[30rem] space-y-3 overflow-y-auto rounded-[28px] border border-white/10 bg-slate-950/45 p-4"
+        >
           {filteredLogs.map((log) => (
-            <div key={log.id} className={`rounded-3xl border p-4 ${toneMap[log.level] || toneMap.success}`}>
-              <div className="mb-2 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.2em] text-current/80">
+            <div key={log.id} className={`rounded-2xl border px-4 py-3 ${toneMap[log.level] || toneMap.success}`}>
+              <div className="mb-2 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.24em] text-current/80">
                 <span>{log.level}</span>
                 <span>{formatTimestamp(log.timestamp)}</span>
               </div>
-              <p className="text-sm leading-6 text-slate-100">{log.message}</p>
+              <p className="font-mono text-sm leading-6 text-slate-100">{log.message}</p>
             </div>
           ))}
         </div>

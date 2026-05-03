@@ -75,7 +75,10 @@ export function useDashboardData() {
         decision: normalizeDecision(decisionData),
         content: normalizeContent(contentData),
         logs: normalizeLogs(logsData),
-        language: prev.language || configData?.default_language || normalizedStatus.language || "te",
+        language:
+          normalizedStatus.running || normalizedStatus.lastRunTime
+            ? normalizedStatus.language
+            : configData?.default_language || normalizedStatus.language || prev.language || "te",
         loading: false,
         refreshing: false,
         error: ""
@@ -103,6 +106,14 @@ export function useDashboardData() {
     try {
       await action();
       await loadData({ silent: true });
+    } catch (error) {
+      if (!mounted.current) {
+        return;
+      }
+      setState((prev) => ({
+        ...prev,
+        error: error?.response?.data?.detail || error?.message || "Action failed. Please try again."
+      }));
     } finally {
       if (!mounted.current) {
         return;

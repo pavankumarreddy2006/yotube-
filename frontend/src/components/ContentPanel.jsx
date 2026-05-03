@@ -39,19 +39,22 @@ export default function ContentPanel({ content }) {
   ];
 
   return (
-    <Card title="Generated Content" subtitle={`Latest ${content.languageLabel || "selected"} script package ready for voice and video.`}>
+    <Card
+      title="Generated Content"
+      subtitle={`Latest ${content.languageLabel || "selected"} script package ready for voice and video.`}
+    >
       <div className="space-y-4">
         {content.title ? (
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
             <p className="subtle">SEO Title</p>
             <h3 className="mt-2 text-lg font-semibold text-white">{content.title}</h3>
             <p className="mt-3 text-sm leading-6 text-slate-300">{content.description || "Description unavailable."}</p>
-            {content.hashtags?.length ? <p className="mt-3 text-sm text-highlight">{content.hashtags.join(" ")}</p> : null}
+            {content.hashtags?.length ? <p className="mt-3 text-sm text-cyan-200">{content.hashtags.join(" ")}</p> : null}
           </div>
         ) : null}
 
         {blocks.map((block) => (
-          <section key={block.key} className="rounded-3xl border border-white/10 bg-white/5 p-4">
+          <section key={block.key} className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="font-display text-base font-semibold text-white">{block.title}</h3>
               <button type="button" onClick={() => handleCopy(block.key, block.value || block.fallback)} className="action-btn-secondary">

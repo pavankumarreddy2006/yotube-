@@ -16,11 +16,11 @@ export default {
       },
       boxShadow: {
         glow: "0 22px 70px rgba(2, 10, 24, 0.45)",
-        soft: "0 12px 35px rgba(4, 14, 30, 0.28)"
+        soft: "0 20px 60px rgba(4, 14, 30, 0.28)"
       },
       fontFamily: {
-        display: ["Poppins", "sans-serif"],
-        body: ["'Noto Sans Telugu'", "Inter", "sans-serif"]
+        display: ["Manrope", "sans-serif"],
+        body: ["'Noto Sans Telugu'", "Manrope", "sans-serif"]
       },
       animation: {
         float: "float 7s ease-in-out infinite",

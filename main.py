@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import sys
 import threading
@@ -201,6 +202,18 @@ def _write_subtitles(script: str, output_path: Path) -> str | None:
     return str(output_path)
 
 
+def _validate_video_environment() -> None:
+    try:
+        from moviepy.editor import AudioFileClip, ImageClip  # noqa: F401
+
+        _append_log("MoviePy is available.", stage="video")
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"MoviePy is not available: {exc}") from exc
+
+    ffmpeg_binary = os.getenv("IMAGEIO_FFMPEG_EXE") or settings.ffmpeg_path
+    _append_log(f"FFmpeg check: configured value is {ffmpeg_binary}.", stage="video")
+
+
 def _probe_duration(path: str | Path) -> float | None:
     file_path = Path(str(path))
     if not file_path.exists():
@@ -247,18 +260,21 @@ def generate_voice_track(script: str, output_path: Path, language: str) -> str |
 def create_video(
     *,
     audio_path: str | None,
+    image_path: str | None,
     output_path: Path,
-    subtitles_path: str | None,
     vertical: bool,
 ) -> str | None:
-    return build_video(
-        audio_path=audio_path,
-        output_path=str(output_path),
-        background_path=str(settings.background_video_vertical if vertical else settings.background_video_horizontal),
-        vertical=vertical,
-        subtitles_path=subtitles_path,
-        music_path=settings.background_music_path,
-    )
+    try:
+        return build_video(
+            audio_path=audio_path,
+            image_path=image_path,
+            output_path=str(output_path),
+            vertical=vertical,
+        )
+    except Exception as exc:
+        _append_log(f"Video generation failed: {exc}", level="error", stage="video")
+        send_upload_failure("video_generation", str(exc)[:260])
+        raise
 
 
 def upload_video_safe(
@@ -279,6 +295,7 @@ def upload_video_safe(
         if "#shorts" not in description.lower():
             description = f"{description}\n\n#Shorts #Sports"
     try:
+        _append_log("Upload started", stage="upload")
         return upload_video(
             video_path=str(video_path),
             title=title,
@@ -288,6 +305,7 @@ def upload_video_safe(
         )
     except Exception as exc:
         logger.error("Upload failed: %s", exc)
+        send_upload_failure("upload", str(exc)[:260])
         return f"upload-failed: {str(exc)[:180]}"
 
 
@@ -379,6 +397,7 @@ def _run_once(*, mode: str, language: str) -> None:
         return
 
     _set_stage("started", "Processing", detail=f"Starting automation in {content.language_label}.", telegram_stage="started")
+    _validate_video_environment()
     candidates, trends = fetch_all_candidates()
     highlights = select_daily_highlights(candidates) if candidates else [_safe_topic()]
     signature = _headline_signature(highlights, language)
@@ -410,8 +429,6 @@ def _run_once(*, mode: str, language: str) -> None:
     work_dir = OUTPUT_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_{slugify(content.title or selected_topic.title)}"
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    shorts_subtitles_path = _write_subtitles(content.shorts_script, work_dir / "shorts.srt")
-    long_subtitles_path = _write_subtitles(content.long_script, work_dir / "long.srt")
     thumbnail_path = str(create_thumbnail(content.thumbnail_text or "SPORTS UPDATE", content.thumbnail_idea, work_dir / "thumbnail.jpg"))
 
     dump_json(
@@ -441,15 +458,15 @@ def _run_once(*, mode: str, language: str) -> None:
 
     shorts_video_path = create_video(
         audio_path=shorts_audio_path,
+        image_path=thumbnail_path,
         output_path=work_dir / "shorts.mp4",
-        subtitles_path=shorts_subtitles_path,
         vertical=True,
     )
     if settings.enable_long_video:
         long_video_path = create_video(
             audio_path=long_audio_path,
+            image_path=thumbnail_path,
             output_path=work_dir / "long.mp4",
-            subtitles_path=long_subtitles_path,
             vertical=False,
         )
     _set_stage(
@@ -566,7 +583,7 @@ def _finalize_success(
             "language": language,
             "language_label": content.language_label,
             "work_dir": str(work_dir),
-            "selected_topic": content.title,
+            "selected_topic": selected_topic.title,
             "selected_topic_summary": selected_topic.summary,
             "thumbnail_url": thumbnail_path,
             "thumbnail_text": content.thumbnail_text,
@@ -638,7 +655,43 @@ def run_pipeline(mode: str = "full", language: str | None = None) -> None:
 
 
 def run_pipeline_logic(mode: str = "full", language: str | None = None) -> None:
+    if mode == "test":
+        run_test_mode(language)
+        return
     run_pipeline(mode, language)
+
+
+def run_test_mode(language: str | None = None) -> None:
+    normalized_language = normalize_language(language)
+    work_dir = OUTPUT_DIR / "test_mode"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    sample_video = work_dir / "output.mp4"
+
+    existing_audio = next(OUTPUT_DIR.rglob("*.mp3"), None)
+    existing_image = next(OUTPUT_DIR.rglob("*.jpg"), None)
+    if existing_audio and existing_image:
+        audio_path = str(existing_audio)
+        thumbnail_path = str(existing_image)
+    else:
+        content = _fallback_package(normalized_language)
+        sample_audio = work_dir / "sample.mp3"
+        sample_image = work_dir / "sample.jpg"
+        thumbnail_path = str(create_thumbnail("TEST MODE", content.thumbnail_idea, sample_image))
+        audio_path = generate_voice_track("This is a pipeline test for audio to video generation.", sample_audio, "en")
+        if not audio_path:
+            raise RuntimeError("Test mode could not create sample audio.")
+
+    video_path = create_video(
+        audio_path=audio_path,
+        image_path=thumbnail_path,
+        output_path=sample_video,
+        vertical=True,
+    )
+    if not video_path or not Path(video_path).exists():
+        raise RuntimeError("Test mode video generation failed.")
+
+    send_stage_notification("video_created", f"Test video created at {video_path}")
+    send_stage_notification("all_done", "Telegram test message sent successfully.")
 
 
 def main() -> None:

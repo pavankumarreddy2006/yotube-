@@ -7,7 +7,7 @@ export default function NotificationPanel({ notifications }) {
   const items = Array.isArray(notifications) ? notifications : [];
 
   return (
-    <Card title="Notification Panel" subtitle="Latest Telegram alerts and system messages.">
+    <Card title="Notifications" subtitle="Latest Telegram alerts and system messages.">
       {items.length === 0 ? (
         <EmptyState
           icon={BellRing}
@@ -17,10 +17,10 @@ export default function NotificationPanel({ notifications }) {
       ) : (
         <div className="space-y-3">
           {items.map((item, index) => (
-            <div key={item.id || index} className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <div key={item.id || index} className="rounded-[26px] border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-white">
-                  <BellRing className="h-4 w-4 text-highlight" />
+                  <BellRing className="h-4 w-4 text-cyan-300" />
                   Alert
                 </div>
                 <span className="text-xs text-slate-400">{formatTimestamp(item.timestamp || item.time)}</span>

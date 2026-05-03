@@ -1,6 +1,6 @@
 export default function LoadingScreen() {
   return (
-    <div className="panel flex min-h-[55vh] flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="panel-surface flex min-h-[55vh] flex-col items-center justify-center gap-4 p-8 text-center">
       <div className="flex gap-2">
         <span className="h-3 w-3 animate-pulse rounded-full bg-accent" />
         <span className="h-3 w-3 animate-pulse rounded-full bg-highlight [animation-delay:200ms]" />
