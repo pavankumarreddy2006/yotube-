@@ -136,7 +136,15 @@ def _load_status() -> dict[str, Any]:
 async def root():
     if DIST_DIR.exists():
         return FileResponse(DIST_DIR / "index.html")
-    return JSONResponse({"status": "ok", "message": "Telugu Sports Automation API running"})
+    return JSONResponse(
+        {
+            "status": "ok",
+            "message": "Telugu Sports Automation API running",
+            "frontend_built": False,
+            "detail": f"Expected compiled frontend at {DIST_DIR}",
+            "dashboard_url": "/dashboard",
+        }
+    )
 
 
 @app.get("/health")
@@ -267,4 +275,10 @@ if DIST_DIR.exists():
 else:
     @app.get("/dashboard")
     async def dashboard() -> JSONResponse:
-        return JSONResponse({"message": "Frontend not built yet. The web application backend is running through the API."})
+        return JSONResponse(
+            {
+                "message": "Frontend not built yet. The web application backend is running through the API.",
+                "frontend_built": False,
+                "detail": f"Expected compiled frontend at {DIST_DIR}",
+            }
+        )
