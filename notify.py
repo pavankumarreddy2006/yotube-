@@ -32,3 +32,11 @@ def send_telegram(message: str) -> None:
         send_message(url, message)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Telegram failed, skipping: %s", exc)
+
+
+def send_upload_success(title: str, youtube_link: str) -> None:
+    send_telegram(f"✅ Video uploaded successfully\nTitle: {title}\nLink: {youtube_link}")
+
+
+def send_upload_failure(error_details: str) -> None:
+    send_telegram(f"❌ Upload failed\nError details: {error_details}")

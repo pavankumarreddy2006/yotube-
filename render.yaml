@@ -4,3 +4,9 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt && npm --prefix frontend ci && npm --prefix frontend run build
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+  - type: cron
+    name: youtube-automation-daily
+    env: python
+    schedule: "0 5 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py full

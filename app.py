@@ -495,8 +495,9 @@ async def get_content() -> JSONResponse:
     content = latest_content.get("content", {}) or {}
     payload = dict(content)
     payload.setdefault("shorts_script", content.get("shorts_script_telugu", ""))
-    payload.setdefault("long_script", content.get("long_script_english", ""))
+    payload.setdefault("long_script", content.get("long_script_telugu", ""))
     payload.setdefault("hashtags", content.get("hashtags", []))
+    payload.setdefault("highlights_telugu", content.get("highlights_telugu", []))
     return JSONResponse(payload)
 
 

@@ -34,16 +34,29 @@ class Settings:
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     ffmpeg_path: str = os.getenv("FFMPEG_PATH", "ffmpeg")
+    ffprobe_path: str = os.getenv("FFPROBE_PATH", "ffprobe")
     background_video_vertical: str = os.getenv("BACKGROUND_VIDEO_VERTICAL", str(ASSETS_DIR / "background_vertical.mp4"))
+    background_video_horizontal: str = os.getenv("BACKGROUND_VIDEO_HORIZONTAL", str(ASSETS_DIR / "background_horizontal.mp4"))
+    background_music_path: str = os.getenv("BACKGROUND_MUSIC_PATH", str(ASSETS_DIR / "background_music.mp3"))
+    intro_video_path: str = os.getenv("INTRO_VIDEO_PATH", str(ASSETS_DIR / "intro.mp4"))
+    outro_video_path: str = os.getenv("OUTRO_VIDEO_PATH", str(ASSETS_DIR / "outro.mp4"))
     thumbnail_font_path: str = os.getenv(
         "THUMBNAIL_FONT_PATH",
         str(ASSETS_DIR / "DejaVuSans-Bold.ttf"),
     )
     channel_name: str = os.getenv("CHANNEL_NAME", "Telugu Sports Update")
+    max_daily_highlights: int = int(os.getenv("MAX_DAILY_HIGHLIGHTS", "7"))
+    min_daily_highlights: int = int(os.getenv("MIN_DAILY_HIGHLIGHTS", "5"))
+    pipeline_retry_limit: int = int(os.getenv("PIPELINE_RETRY_LIMIT", "2"))
+    daily_run_time: str = os.getenv("DAILY_RUN_TIME", "05:00")
     enable_upload: bool = _get_bool("ENABLE_UPLOAD", True)
     enable_notifications: bool = _get_bool("ENABLE_NOTIFICATIONS", True)
     enable_voice: bool = _get_bool("ENABLE_VOICE", True)
     enable_long_video: bool = _get_bool("ENABLE_LONG_VIDEO", True)
+    enable_daily_runner: bool = _get_bool("ENABLE_DAILY_RUNNER", True)
+    enable_subtitles: bool = _get_bool("ENABLE_SUBTITLES", True)
+    enable_background_music: bool = _get_bool("ENABLE_BACKGROUND_MUSIC", True)
+    enable_quality_checks: bool = _get_bool("ENABLE_QUALITY_CHECKS", True)
     public_visibility: str = os.getenv("YOUTUBE_PRIVACY_STATUS", "public")
 
     @property

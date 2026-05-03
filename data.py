@@ -182,7 +182,7 @@ def fetch_all_candidates() -> tuple[list[TopicCandidate], list[str]]:
     except Exception as exc:
         logger.exception("Cricket fetch failed: %s", exc)
 
-    merged = news + cricket
+    merged = _dedupe_candidates(news + cricket)
     if not merged:
         merged = [TopicCandidate(**story) for story in FALLBACK_STORIES]
 
@@ -191,6 +191,27 @@ def fetch_all_candidates() -> tuple[list[TopicCandidate], list[str]]:
         candidate.is_trending = any(term.lower() in haystack for term in trends)
 
     return merged, trends
+
+
+def select_daily_highlights(candidates: list[TopicCandidate]) -> list[TopicCandidate]:
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            int(item.is_trending),
+            int(item.is_thriller),
+            int(item.is_india),
+            int(bool(item.score_details)),
+            item.published_at or "",
+        ),
+        reverse=True,
+    )
+    minimum = max(1, settings.min_daily_highlights)
+    maximum = max(minimum, settings.max_daily_highlights)
+    selected = ranked[:maximum]
+    if len(selected) < minimum:
+        fallback = [TopicCandidate(**story) for story in FALLBACK_STORIES]
+        selected.extend(fallback[: minimum - len(selected)])
+    return _dedupe_candidates(selected)
 
 
 def fallback_story_for_date() -> TopicCandidate:
@@ -209,3 +230,15 @@ def _extract_players(text: str) -> list[str]:
         "suryakumar yadav",
     ]
     return [name.title() for name in known_players if name in text]
+
+
+def _dedupe_candidates(candidates: list[TopicCandidate]) -> list[TopicCandidate]:
+    unique: list[TopicCandidate] = []
+    seen: set[str] = set()
+    for item in candidates:
+        key = f"{item.title}|{item.summary}".strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique

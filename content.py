@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import openai
 from openai import OpenAI
@@ -22,7 +22,9 @@ EXPECTED_KEYS = {
     "thumbnail_text",
     "hook",
     "shorts_script_telugu",
-    "long_script_english",
+    "long_script_telugu",
+    "highlights_telugu",
+    "hashtags",
 }
 
 
@@ -34,7 +36,9 @@ class ContentPackage:
     thumbnail_text: str
     hook: str
     shorts_script_telugu: str
-    long_script_english: str
+    long_script_telugu: str
+    highlights_telugu: list[str] = field(default_factory=list)
+    hashtags: list[str] = field(default_factory=list)
 
     @property
     def shorts_script(self) -> str:
@@ -42,21 +46,17 @@ class ContentPackage:
 
     @property
     def long_script(self) -> str:
-        return self.long_script_english
+        return self.long_script_telugu
 
     @property
     def thumbnail_idea(self) -> str:
-        return "Bold sports thumbnail with strong contrast, player emotion, and breaking-news energy."
-
-    @property
-    def hashtags(self) -> list[str]:
-        return []
+        return "Bold sports thumbnail with strong contrast, player emotion, breaking-news urgency, and Telugu news styling."
 
 
 SYSTEM_PROMPT = """
-You are a professional YouTube sports content creator.
+You are a professional YouTube sports newsroom producer for a Telugu audience.
 
-Your job is to convert sports news into HIGH-ENGAGEMENT YouTube video content.
+Create a DAILY sports bulletin package from multiple fresh sports highlights.
 
 OUTPUT (STRICT JSON ONLY):
 {
@@ -66,94 +66,96 @@ OUTPUT (STRICT JSON ONLY):
   "thumbnail_text": "",
   "hook": "",
   "shorts_script_telugu": "",
-  "long_script_english": ""
+  "long_script_telugu": "",
+  "highlights_telugu": [],
+  "hashtags": []
 }
 
 RULES:
-1. TITLE:
-- Must be viral and emotional
-- Add curiosity + drama
-
-2. THUMBNAIL TEXT:
-- Max 4 words
-- ALL CAPS
-- Emotional
-
-3. HOOK:
-- First 2 seconds attention grabber
-- Must create curiosity
-
-4. SHORTS SCRIPT (TELUGU):
-- 25-40 seconds speaking
-- Simple Telugu
-- Energetic tone
-- Include emotion + suspense
-
-5. LONG SCRIPT (ENGLISH):
-- 500-900 words
-- Structure:
-  - Hook intro
-  - What happened
-  - Key moments
-  - Analysis
-  - Ending
-- Storytelling style like a YouTuber
-
-6. DESCRIPTION:
-- Include keywords: sports news, cricket, football, highlights
-- Add CTA: Like, Share, Subscribe
-
-7. TAGS:
-- Minimum 10 tags
-- Include trending sports keywords
-
-IMPORTANT:
-- Output ONLY JSON
-- No explanation
+1. Voiceover scripts must be fully in natural Telugu.
+2. Title, description, tags, and hashtags must be in English.
+3. Long script:
+   - 650 to 950 Telugu words
+   - Cover 5 to 10 sports highlights
+   - Energetic sports-news anchor tone
+   - Start with a hook, then move through the biggest updates, then end with a closing CTA
+4. Shorts script:
+   - 30 to 60 seconds
+   - Mention 3 to 4 strongest highlights
+   - Fast, punchy, highly engaging
+5. highlights_telugu:
+   - 5 to 10 short Telugu bullet lines
+6. Thumbnail text:
+   - Max 4 words
+   - Uppercase English
+   - Breaking-news feel
+7. Description:
+   - English summary of the bulletin
+   - Add hashtags at the end
+8. Tags:
+   - At least 10 relevant English tags
+9. Output JSON only.
 """.strip()
 
 
 def fallback_content() -> dict[str, str]:
     return {
-        "title": "Telugu Sports Update",
+        "title": "Telugu Sports Daily Update",
         "script": (
-            "Latest sports update is here. Big reaction from fans, key match pressure, "
-            "and one talking point everyone is discussing right now."
+            "ఈరోజు స్పోర్ట్స్ ప్రపంచంలో ఎన్నో కీలక అప్డేట్లు వచ్చాయి. క్రికెట్, ఫుట్‌బాల్, "
+            "అంతర్జాతీయ టోర్నమెంట్లు, స్టార్ ప్లేయర్స్ గురించి ప్రస్తుతం ఫ్యాన్స్ మాట్లాడుకుంటున్నారు."
         ),
     }
 
 
-def generate_content(topic: TopicCandidate, scored: ScoredTopic, trends: list[str]) -> ContentPackage:
+def generate_content(
+    selected_topic: TopicCandidate,
+    scored: ScoredTopic,
+    trends: list[str],
+    highlights: list[TopicCandidate],
+) -> ContentPackage:
     if settings.openai_api_key:
         try:
-            return _generate_with_llm(topic, scored, trends)
+            return _generate_with_llm(selected_topic, scored, trends, highlights)
         except Exception:
             logging.warning("Using template fallback content")
             logger.exception("LLM generation failed")
 
     try:
-        return _fallback_content(topic, scored, trends)
+        return _fallback_content(selected_topic, scored, trends, highlights)
     except Exception:
         logger.exception("Template fallback failed")
         return _minimal_content_package()
 
 
-def _generate_with_llm(topic: TopicCandidate, scored: ScoredTopic, trends: list[str]) -> ContentPackage:
+def _generate_with_llm(
+    selected_topic: TopicCandidate,
+    scored: ScoredTopic,
+    trends: list[str],
+    highlights: list[TopicCandidate],
+) -> ContentPackage:
     client = OpenAI(api_key=settings.openai_api_key)
+    highlight_lines = []
+    for index, item in enumerate(highlights[: settings.max_daily_highlights], start=1):
+        highlight_lines.append(
+            f"{index}. {item.title} | {item.summary} | source={item.source} | published={item.published_at or 'unknown'}"
+        )
+
     prompt = f"""
-INPUT:
-Topic: {topic.title}
-Details:
-- Summary: {topic.summary}
+MAIN STORY:
+- Topic: {selected_topic.title}
+- Summary: {selected_topic.summary}
 - Score: {scored.score}
 - Decision: {scored.decision}
 - Reasons: {", ".join(scored.reasons) or "none"}
-- Players: {", ".join(topic.players) or "none"}
-- Tournament: {topic.tournament or "none"}
-- Score details: {topic.score_details or "none"}
-- Trending keywords: {", ".join(trends[:10]) or "sports news, cricket, football, highlights"}
 
-Make the content feel current, emotional, and optimized for YouTube engagement.
+DAILY HIGHLIGHTS:
+{chr(10).join(highlight_lines)}
+
+TRENDING KEYWORDS:
+{", ".join(trends[:12]) or "sports news, cricket, football, olympics"}
+
+Create a fact-based daily Telugu sports bulletin for YouTube. Do not invent statistics or scores.
 """.strip()
 
     def operation() -> ContentPackage:
@@ -182,73 +184,75 @@ Make the content feel current, emotional, and optimized for YouTube engagement.
     )
 
 
-def _fallback_content(topic: TopicCandidate, scored: ScoredTopic, trends: list[str]) -> ContentPackage:
+def _fallback_content(
+    selected_topic: TopicCandidate,
+    scored: ScoredTopic,
+    trends: list[str],
+    highlights: list[TopicCandidate],
+) -> ContentPackage:
+    del scored
     base = fallback_content()["script"]
-    player_text = topic.players[0] if topic.players else "star player"
-    tournament = topic.tournament or "sports world"
-    trend_text = ", ".join(trends[:3]) or "India cricket, IPL, fan reactions"
-    title = f"{(topic.title or 'Sports Update')[:58]}... What Happened Next?!"
-    hook = f"{player_text} shock ichchada? Final moments lo asalu em jarigindi?"
+    chosen = highlights[: settings.max_daily_highlights] or [selected_topic]
+    telugu_lines: list[str] = []
+    english_summaries: list[str] = []
+
+    for item in chosen:
+        line = _build_telugu_highlight(item)
+        telugu_lines.append(line)
+        english_summaries.append(f"- {item.title}: {item.summary}")
+
+    top_items = telugu_lines[:4]
     shorts_script_telugu = (
-        f"Friends, ivvala sports lo pedda twist jarigindi. {topic.title or 'Latest sports update'} gurinchi andaroo maatladutunnaru. "
-        f"{topic.summary or base} "
-        f"{topic.score_details or ''} "
-        f"Especially {player_text} performance chusi fans full shock ayyaru. "
-        "Match pressure, last moment tension, anduke ee update ippudu viral avtundi. "
-        "Mee opinion enti, comments lo cheppandi."
-    ).strip()
-    long_script_english = (
-        f"Have you ever watched a sports story unfold and felt like the drama kept getting bigger every minute? "
-        f"That is exactly what happened with {topic.title or 'this latest sports update'}. Today, we are breaking down the full story, "
-        f"why fans are reacting so strongly, and what this moment could mean going forward.\n\n"
-        f"Let us start with what happened. {topic.summary or base} "
-        f"{topic.score_details or 'The biggest talking point came from how quickly the momentum shifted.'} "
-        f"In a fast-moving sports cycle, stories like this explode because they combine emotion, pressure, and uncertainty. "
-        f"That is why this update is now being discussed across fan pages, highlight clips, and reaction threads.\n\n"
-        f"One of the key names in this story is {player_text}. Whether you look at the performance, decision-making, or just the pressure of the situation, "
-        "this was the kind of moment that instantly gets people talking. Fans do not just react to the result. They react to the tension, "
-        "the body language, the key turning points, and the feeling that something huge was always about to happen.\n\n"
-        f"Now let us get into the biggest moments. First, the build-up itself created interest because the context around {tournament} already carried weight. "
-        "Then came the sequence that changed the conversation. From there, every small detail mattered more. A single over, a single move, "
-        "a single missed chance, or a clutch response can completely flip the energy of a game or sports headline. "
-        "That is what made this feel bigger than a normal update.\n\n"
-        "The analysis is where things get even more interesting. This is not only about one result. It is about momentum. It is about confidence. "
-        "It is about how players, teams, and fans respond when pressure suddenly rises. The reasons behind the buzz include "
-        f"{', '.join(scored.reasons) or 'strong fan emotion and massive public interest'}. "
-        f"On top of that, trending topics around this story include {trend_text}, which tells us the attention is spreading beyond just one audience.\n\n"
-        "If this performance or moment becomes a turning point, we may look back at this as the spark that changed the next phase of the conversation. "
-        "If it goes the other way, fans will still remember this as one of those emotionally charged updates that felt impossible to ignore. "
-        "That is the power of sports. It gives us moments that are unpredictable, dramatic, and instantly shareable.\n\n"
-        "So what do you think? Was this overhyped, or was it genuinely one of the most intense sports talking points right now? "
-        "Drop your take below, and if you want more sports storytelling, match breakdowns, cricket updates, football reactions, and highlights, stay tuned for the next one."
+        "హలో స్పోర్ట్స్ ఫ్యాన్స్, ఇవాళ్టి టాప్ స్పోర్ట్స్ అప్డేట్స్ మీ కోసం రెడీగా ఉన్నాయి. "
+        + " ".join(top_items)
+        + " మరిన్ని ఇలాంటి స్పోర్ట్స్ న్యూస్ కోసం ఛానల్‌ను ఫాలో అవ్వండి."
     ).strip()
 
+    body_segments = [
+        "నమస్కారం స్పోర్ట్స్ అభిమానులారా, ఇవాళ ప్రపంచ క్రీడల్లో ట్రెండింగ్‌లో ఉన్న ముఖ్యమైన వార్తలను ఇప్పుడు వివరంగా చూద్దాం.",
+    ]
+    body_segments.extend(telugu_lines)
+    body_segments.append(
+        "ఈరోజు మొత్తం స్పోర్ట్స్ ప్రపంచాన్ని చూస్తే క్రికెట్ నుండి ఫుట్‌బాల్ వరకు ప్రతి అప్‌డేట్ కూడా ఫ్యాన్స్‌లో పెద్ద చర్చకు దారి తీసింది."
+    )
+    body_segments.append(
+        "మీకు ఏ అప్‌డేట్ ఎక్కువగా ఆసక్తికరంగా అనిపించిందో కామెంట్స్‌లో చెప్పండి. ఇలాంటి డైలీ తెలుగు స్పోర్ట్స్ బులెటిన్స్ కోసం లైక్, షేర్, సబ్‌స్క్రైబ్ చేయండి."
+    )
+
+    description_hashtags = _normalize_hashtags(
+        ["#SportsNews", "#CricketNews", "#FootballNews", "#Olympics", "#TeluguSports"]
+    )
+    trend_tags = _normalize_tags(trends)
+    description = (
+        "Today's biggest sports stories in one Telugu bulletin.\n\n"
+        + "\n".join(english_summaries[:8])
+        + "\n\nsports news, cricket, football, highlights"
+        + "\nLike, Share, Subscribe for more daily sports updates."
+        + f"\n\n{' '.join(description_hashtags[:5])}"
+    )
+
     return ContentPackage(
-        title=title,
-        description=(
-            f"{topic.title or 'Latest sports update'}\n\n"
-            f"{topic.summary or base}\n\n"
-            "sports news, cricket, football, highlights\n"
-            "Like, Share, Subscribe for more daily sports updates."
+        title=_build_title(chosen),
+        description=description,
+        tags=_merge_tags(
+            [
+                "daily sports news",
+                "telugu sports news",
+                "cricket news today",
+                "football news today",
+                "olympics news",
+                "sports highlights",
+                "breaking sports news",
+                "youtube sports update",
+            ],
+            trend_tags,
         ),
-        tags=[
-            "sports news",
-            "cricket",
-            "football",
-            "highlights",
-            "sports highlights",
-            "breaking sports news",
-            "cricket news",
-            "football news",
-            "viral sports update",
-            "match highlights",
-            tournament.lower(),
-            player_text.lower(),
-        ],
-        thumbnail_text="FINAL OVER SHOCK",
-        hook=hook,
+        thumbnail_text="SPORTS NEWS TODAY",
+        hook="ఈరోజు స్పోర్ట్స్ ప్రపంచంలో పెద్ద మార్పులు జరిగాయి, టాప్ అప్డేట్స్ ఇప్పుడే చూద్దాం.",
         shorts_script_telugu=shorts_script_telugu,
-        long_script_english=long_script_english,
+        long_script_telugu=" ".join(body_segments),
+        highlights_telugu=telugu_lines,
+        hashtags=description_hashtags,
     )
 
 
@@ -263,17 +267,36 @@ def _minimal_content_package() -> ContentPackage:
             "football",
             "highlights",
             "sports update",
-            "breaking news",
-            "match highlights",
-            "cricket news",
-            "football news",
-            "viral sports",
+            "breaking sports news",
+            "daily sports bulletin",
+            "telugu sports news",
+            "olympics update",
+            "world sports news",
         ],
         thumbnail_text="SPORTS UPDATE",
         hook=data["script"],
         shorts_script_telugu=data["script"],
-        long_script_english="",
+        long_script_telugu=data["script"],
+        highlights_telugu=[data["script"]],
+        hashtags=["#SportsNews", "#TeluguSports"],
     )
+
+
+def _build_telugu_highlight(item: TopicCandidate) -> str:
+    tournament = f"{item.tournament}లో " if item.tournament else ""
+    score = f" స్కోర్ విషయానికి వస్తే {item.score_details}." if item.score_details else ""
+    source = f" ఈ అప్‌డేట్ {item.source} ద్వారా వెలుగులోకి వచ్చింది." if item.source else ""
+    return (
+        f"{tournament}{item.title} ఇప్పుడు స్పోర్ట్స్ ప్రపంచంలో ప్రధాన చర్చగా మారింది. "
+        f"{item.summary}.{score}{source}"
+    ).replace("..", ".")
+
+
+def _build_title(items: list[TopicCandidate]) -> str:
+    if not items:
+        return "Top Sports News Today | Cricket, Football & More"
+    primary = items[0].title.split("|")[0].strip()
+    return f"Top Sports News Today: {primary[:45]} & More"
 
 
 def _parse_response_payload(raw_text: str) -> dict[str, object]:
@@ -286,14 +309,21 @@ def _parse_response_payload(raw_text: str) -> dict[str, object]:
         raise ValueError("Model response was not a JSON object")
 
     normalized = {key: payload.get(key) for key in EXPECTED_KEYS}
+    hashtags = _normalize_hashtags(normalized.get("hashtags"))
+    description = _ensure_keywords_and_cta(_as_text(normalized.get("description"), fallback_content()["script"]))
+    if hashtags:
+        description = f"{description}\n\n{' '.join(hashtags[:6])}"
+
     return {
         "title": _as_text(normalized.get("title"), "Sports Update"),
-        "description": _ensure_keywords_and_cta(_as_text(normalized.get("description"), fallback_content()["script"])),
+        "description": description,
         "tags": _normalize_tags(normalized.get("tags")),
         "thumbnail_text": _normalize_thumbnail_text(normalized.get("thumbnail_text")),
-        "hook": _as_text(normalized.get("hook"), "This sports moment changed everything."),
+        "hook": _as_text(normalized.get("hook"), "ఈరోజు టాప్ స్పోర్ట్స్ అప్డేట్స్ చూద్దాం."),
         "shorts_script_telugu": _as_text(normalized.get("shorts_script_telugu"), fallback_content()["script"]),
-        "long_script_english": _as_text(normalized.get("long_script_english"), ""),
+        "long_script_telugu": _as_text(normalized.get("long_script_telugu"), fallback_content()["script"]),
+        "highlights_telugu": _normalize_highlights(normalized.get("highlights_telugu")),
+        "hashtags": hashtags,
     }
 
 
@@ -312,25 +342,60 @@ def _normalize_tags(value: object) -> list[str]:
 
     fallback_tags = [
         "sports news",
-        "cricket",
-        "football",
-        "highlights",
+        "daily sports news",
         "cricket news",
         "football news",
+        "olympics news",
         "sports highlights",
         "breaking sports news",
-        "match highlights",
-        "viral sports update",
+        "telugu sports news",
+        "world sports update",
+        "sports shorts",
     ]
-    merged = raw_tags + [tag for tag in fallback_tags if tag not in raw_tags]
-    return merged[:15]
+    return _merge_tags(raw_tags, fallback_tags)[:15]
+
+
+def _merge_tags(*groups: list[str]) -> list[str]:
+    merged: list[str] = []
+    for group in groups:
+        for item in group:
+            text = str(item).strip()
+            if text and text.lower() not in {existing.lower() for existing in merged}:
+                merged.append(text)
+    return merged
 
 
 def _normalize_thumbnail_text(value: object) -> str:
-    text = _as_text(value, "BIG MATCH SHOCK")
+    text = _as_text(value, "BIG SPORTS ALERT")
     words = text.upper().split()
     trimmed = " ".join(words[:4]).strip()
-    return trimmed or "BIG MATCH SHOCK"
+    return trimmed or "BIG SPORTS ALERT"
+
+
+def _normalize_highlights(value: object) -> list[str]:
+    if isinstance(value, list):
+        items = [str(item).strip() for item in value if str(item).strip()]
+    elif isinstance(value, str):
+        items = [line.strip("- ").strip() for line in value.splitlines() if line.strip()]
+    else:
+        items = []
+    return items[:10]
+
+
+def _normalize_hashtags(value: object) -> list[str]:
+    if isinstance(value, list):
+        items = [str(item).strip() for item in value if str(item).strip()]
+    elif isinstance(value, str):
+        items = [part.strip() for part in value.replace(",", " ").split() if part.strip()]
+    else:
+        items = []
+
+    normalized: list[str] = []
+    for item in items:
+        tag = item if item.startswith("#") else f"#{item.replace(' ', '')}"
+        if tag.lower() not in {existing.lower() for existing in normalized}:
+            normalized.append(tag)
+    return normalized[:8]
 
 
 def _ensure_keywords_and_cta(description: str) -> str:
