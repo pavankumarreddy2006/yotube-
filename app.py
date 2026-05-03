@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -23,7 +23,9 @@ logger = get_logger(__name__)
 app = FastAPI(title="AI Sports Automation Dashboard")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-DIST_DIR = BASE_DIR / "frontend" / "dist"
+DIST_DIR = BASE_DIR / "frontend" / "build"
+DIST_INDEX = DIST_DIR / "index.html"
+DIST_ASSETS_DIR = DIST_DIR / "static"
 LOG_FILE = BASE_DIR / "logs.txt"
 STATUS_FILE = OUTPUT_DIR / "pipeline_status.json"
 LATEST_RUN_FILE = OUTPUT_DIR / "latest_run.json"
@@ -69,6 +71,16 @@ def _latest_content_payload() -> dict[str, Any]:
     return _read_json(work_dir / "content.json", default={}) or {}
 
 
+def _as_mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _topic_value(value: Any, key: str, default: Any = "") -> Any:
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return default
+
+
 def _to_output_url(file_path: str | None) -> str:
     if not file_path:
         return ""
@@ -85,125 +97,6 @@ def _read_log_text() -> str:
         return LOG_FILE.read_text(encoding="utf-8")
     except Exception:
         return ""
-
-
-def _fallback_dashboard_html() -> str:
-    status = _load_status()
-    current_status = status.get("status", "Idle")
-    current_task = status.get("current_task", "Waiting for next run")
-    language = status.get("language", settings.default_language)
-    return f"""<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI Sports Automation</title>
-    <style>
-      :root {{ color-scheme: dark; }}
-      * {{ box-sizing: border-box; }}
-      body {{
-        margin: 0;
-        min-height: 100vh;
-        font-family: Arial, sans-serif;
-        background:
-          radial-gradient(circle at top, rgba(34, 211, 238, 0.16), transparent 28%),
-          linear-gradient(180deg, #09111d 0%, #111a2e 100%);
-        color: #e2e8f0;
-        padding: 24px;
-      }}
-      .card {{
-        max-width: 920px;
-        margin: 0 auto;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 24px;
-        background: rgba(15, 23, 42, 0.88);
-        padding: 24px;
-        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
-      }}
-      .pill {{
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.04);
-      }}
-      .row {{
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 16px;
-      }}
-      button, select {{
-        height: 46px;
-        border-radius: 999px;
-        border: 0;
-        padding: 0 18px;
-        font-size: 14px;
-      }}
-      select {{
-        background: rgba(255, 255, 255, 0.08);
-        color: white;
-        border: 1px solid rgba(148, 163, 184, 0.2);
-      }}
-      button {{
-        background: linear-gradient(135deg, #2563eb 0%, #22c55e 100%);
-        color: white;
-        font-weight: 700;
-        cursor: pointer;
-      }}
-      pre {{
-        white-space: pre-wrap;
-        border-radius: 18px;
-        padding: 16px;
-        background: rgba(2, 6, 23, 0.68);
-        border: 1px solid rgba(148, 163, 184, 0.12);
-      }}
-      a {{ color: #67e8f9; }}
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <p class="pill">Frontend build missing, fallback mode is active</p>
-      <h1>AI Sports Automation Dashboard</h1>
-      <p>The React build was not found on this deployment, but the API and automation controls are still available.</p>
-      <div class="row">
-        <div class="pill">Status: {current_status}</div>
-        <div class="pill">Task: {current_task}</div>
-      </div>
-      <div class="row">
-        <select id="lang">
-          <option value="te" {"selected" if language == "te" else ""}>Telugu</option>
-          <option value="en" {"selected" if language == "en" else ""}>English</option>
-        </select>
-        <button onclick="startRun()">Start Automation</button>
-        <button onclick="refreshStatus()">Refresh Status</button>
-      </div>
-      <p><a href="/status" target="_blank" rel="noreferrer">Open /status</a> | <a href="/logs" target="_blank" rel="noreferrer">Open /logs</a></p>
-      <pre id="result">Waiting for action...</pre>
-    </div>
-    <script>
-      async function refreshStatus() {{
-        const response = await fetch('/status');
-        const data = await response.json();
-        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-      }}
-
-      async function startRun() {{
-        const language = document.getElementById('lang').value;
-        const response = await fetch('/start', {{
-          method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify({{ language, mode: 'full' }})
-        }});
-        const data = await response.json();
-        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-      }}
-    </script>
-  </body>
-</html>
-"""
 
 
 def _load_logs() -> list[dict[str, str]]:
@@ -236,8 +129,8 @@ def _load_status() -> dict[str, Any]:
     status = _read_json(STATUS_FILE, default={}) or {}
     latest_run = _latest_run_payload()
     latest_content = _latest_content_payload()
-    content = latest_content.get("content", {})
-    selected_topic = latest_content.get("selected_topic", {})
+    content = _as_mapping(latest_content.get("content", {}))
+    selected_topic = latest_content.get("selected_topic") or latest_run.get("selected_topic") or {}
 
     status.setdefault("running", False)
     status.setdefault("failed", False)
@@ -267,19 +160,19 @@ def _load_status() -> dict[str, Any]:
         if str(latest_run.get("long_upload", "")).startswith("https://"):
             youtube_links.append({"label": "Long Video", "url": latest_run["long_upload"]})
         status["youtube_links"] = youtube_links
-    status.setdefault("selected_topic", selected_topic.get("title", latest_run.get("title", "")))
-    status.setdefault("selected_topic_summary", selected_topic.get("summary", ""))
+    status.setdefault("selected_topic", _topic_value(selected_topic, "title", latest_run.get("title", "")))
+    status.setdefault("selected_topic_summary", _topic_value(selected_topic, "summary", ""))
     return status
 
 
 def _build_news_payload() -> dict[str, Any]:
     latest_content = _latest_content_payload()
-    selected_topic = latest_content.get("selected_topic", {})
+    selected_topic = latest_content.get("selected_topic") or {}
     highlights = latest_content.get("highlights", []) or []
     items = []
 
     for index, item in enumerate(highlights[:10]):
-        payload = item if isinstance(item, dict) else {}
+        payload = _as_mapping(item)
         items.append(
             {
                 "id": payload.get("title", f"headline-{index}"),
@@ -297,15 +190,15 @@ def _build_news_payload() -> dict[str, Any]:
     if not items and selected_topic:
         items.append(
             {
-                "id": selected_topic.get("title", "headline-0"),
-                "title": selected_topic.get("title", "Headline unavailable"),
-                "summary": selected_topic.get("summary", "No summary available."),
-                "source": selected_topic.get("source", "system"),
-                "image": selected_topic.get("image") or selected_topic.get("image_url") or selected_topic.get("thumbnail") or "",
-                "trending": selected_topic.get("is_trending", False),
-                "published_at": selected_topic.get("published_at", ""),
-                "topic": selected_topic.get("topic", selected_topic.get("category", "sports")),
-                "category": selected_topic.get("category", "Sports"),
+                "id": _topic_value(selected_topic, "title", "headline-0"),
+                "title": _topic_value(selected_topic, "title", "Headline unavailable"),
+                "summary": _topic_value(selected_topic, "summary", "No summary available."),
+                "source": _topic_value(selected_topic, "source", "system"),
+                "image": _topic_value(selected_topic, "image") or _topic_value(selected_topic, "image_url") or _topic_value(selected_topic, "thumbnail") or "",
+                "trending": _topic_value(selected_topic, "is_trending", False),
+                "published_at": _topic_value(selected_topic, "published_at", ""),
+                "topic": _topic_value(selected_topic, "topic", _topic_value(selected_topic, "category", "sports")),
+                "category": _topic_value(selected_topic, "category", "Sports"),
             }
         )
     return {"items": items}
@@ -365,13 +258,6 @@ async def on_startup() -> None:
     _ensure_scheduler_started()
 
 
-@app.get("/")
-async def root():
-    if DIST_DIR.exists():
-        return FileResponse(DIST_DIR / "index.html")
-    return HTMLResponse(_fallback_dashboard_html())
-
-
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse({"status": "ok", "message": "AI Sports Automation API running"})
@@ -405,14 +291,14 @@ async def get_news() -> JSONResponse:
 @app.get("/decision")
 async def get_decision() -> JSONResponse:
     latest_content = _latest_content_payload()
-    scored_topic = latest_content.get("scored_topic", {})
-    selected_topic = latest_content.get("selected_topic", {})
+    scored_topic = _as_mapping(latest_content.get("scored_topic", {}))
+    selected_topic = latest_content.get("selected_topic") or {}
     return JSONResponse(
         {
             "score": scored_topic.get("score", 0),
             "action": scored_topic.get("decision", "HOLD"),
             "reasons": scored_topic.get("reasons", []),
-            "selected_topic": selected_topic.get("title", "No topic selected"),
+            "selected_topic": _topic_value(selected_topic, "title", "No topic selected"),
         }
     )
 
@@ -484,42 +370,57 @@ async def ask_alias(payload: AskAIRequest) -> JSONResponse:
 
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
-if DIST_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="frontend-assets")
+if DIST_ASSETS_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(DIST_ASSETS_DIR)), name="frontend-static")
 
-    def _serve_frontend() -> FileResponse:
-        return FileResponse(DIST_DIR / "index.html")
 
-    @app.get("/dashboard")
-    async def dashboard() -> FileResponse:
-        return _serve_frontend()
+def _frontend_build_missing() -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail=f"React frontend build is missing. Expected file: {DIST_INDEX}",
+    )
 
-    @app.get("/{full_path:path}")
-    async def frontend_routes(full_path: str) -> FileResponse:
-        if full_path.startswith(
-            (
-                "health",
-                "config",
-                "status",
-                "news",
-                "decision",
-                "content",
-                "run",
-                "retry",
-                "upload",
-                "logs",
-                "automation",
-                "ask-ai",
-                "output",
-                "assets",
-            )
-        ):
-            raise HTTPException(status_code=404, detail="Not found")
-        candidate = DIST_DIR / full_path
-        if full_path and candidate.exists() and candidate.is_file():
-            return FileResponse(candidate)
-        return _serve_frontend()
-else:
-    @app.get("/dashboard")
-    async def dashboard() -> HTMLResponse:
-        return HTMLResponse(_fallback_dashboard_html())
+
+def _serve_frontend() -> FileResponse:
+    if not DIST_INDEX.exists():
+        raise _frontend_build_missing()
+    return FileResponse(DIST_INDEX)
+
+
+@app.get("/")
+async def root() -> FileResponse:
+    return _serve_frontend()
+
+
+@app.get("/dashboard")
+async def dashboard() -> FileResponse:
+    return _serve_frontend()
+
+
+@app.get("/{full_path:path}")
+async def frontend_routes(full_path: str) -> FileResponse:
+    if full_path.startswith(
+        (
+            "health",
+            "config",
+            "status",
+            "news",
+            "decision",
+            "content",
+            "run",
+            "retry",
+            "upload",
+            "logs",
+            "automation",
+            "ask-ai",
+            "output",
+            "static",
+        )
+    ):
+        raise HTTPException(status_code=404, detail="Not found")
+    if not DIST_INDEX.exists():
+        raise _frontend_build_missing()
+    candidate = DIST_DIR / full_path
+    if full_path and candidate.exists() and candidate.is_file():
+        return FileResponse(candidate)
+    return _serve_frontend()
