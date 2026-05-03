@@ -3,8 +3,8 @@ import {
   CheckCircle2,
   CircleDashed,
   CloudUpload,
-  Globe2,
   LoaderCircle,
+  Radio,
   TimerReset
 } from "lucide-react";
 import { formatTimestamp } from "../lib/formatters";
@@ -12,7 +12,7 @@ import Card from "./Card";
 
 const stateConfig = {
   Idle: { label: "Idle", icon: CircleDashed, tone: "status-idle" },
-  Processing: { label: "Processing", icon: LoaderCircle, tone: "status-processing" },
+  Running: { label: "Running", icon: LoaderCircle, tone: "status-processing" },
   Uploading: { label: "Uploading", icon: CloudUpload, tone: "status-uploading" },
   Completed: { label: "Completed", icon: CheckCircle2, tone: "status-completed" },
   Failed: { label: "Failed", icon: AlertTriangle, tone: "status-failed" }
@@ -20,14 +20,13 @@ const stateConfig = {
 
 export default function StatusPanel({ status }) {
   const current = stateConfig[status?.status] || stateConfig.Idle;
-  const states = ["Idle", "Processing", "Uploading", "Completed", "Failed"];
+  const states = ["Idle", "Running", "Uploading", "Completed", "Failed"];
   const CurrentIcon = current.icon;
 
   return (
-    <Card title="System Status" subtitle="Live visibility into every stage of the AI sports production pipeline.">
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="glass-card">
-          <div className="grid gap-3 sm:grid-cols-2">
+    <Card title="Status Panel" subtitle="Live state across your AI sports pipeline with fast operational feedback.">
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {states.map((label) => {
               const config = stateConfig[label];
               const Icon = config.icon;
@@ -41,7 +40,7 @@ export default function StatusPanel({ status }) {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`rounded-2xl p-2 ${active ? "bg-white/10" : "bg-white/5"}`}>
-                      <Icon className={`h-5 w-5 ${active && label === "Processing" ? "animate-spin" : ""}`} />
+                      <Icon className={`h-5 w-5 ${active && label === "Running" ? "animate-spin" : ""}`} />
                     </div>
                     <div>
                       <p className="text-sm font-medium">{label}</p>
@@ -53,13 +52,12 @@ export default function StatusPanel({ status }) {
                 </div>
               );
             })}
-          </div>
         </div>
 
         <div className="space-y-4">
           <div className={`rounded-[28px] border p-5 ${current.tone}`}>
             <div className="mb-3 flex items-center gap-3">
-              <CurrentIcon className={`h-6 w-6 ${current.label === "Processing" ? "animate-spin" : ""}`} />
+              <CurrentIcon className={`h-6 w-6 ${current.label === "Running" ? "animate-spin" : ""}`} />
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-current/70">Pipeline State</p>
                 <h3 className="mt-1 font-display text-2xl font-semibold">{status?.status || "Idle"}</h3>
@@ -70,7 +68,7 @@ export default function StatusPanel({ status }) {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Metric icon={TimerReset} label="Last Execution" value={formatTimestamp(status?.lastRunTime)} />
-            <Metric icon={Globe2} label="Language" value={status?.languageLabel || "Telugu"} />
+            <Metric icon={Radio} label="Output Language" value={status?.languageLabel || "Telugu"} />
           </div>
 
           {status?.selectedTopic ? (

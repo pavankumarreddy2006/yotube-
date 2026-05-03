@@ -1,8 +1,8 @@
-import { Check, Clipboard, Sparkles, Video } from "lucide-react";
+import { Bot, Check, Clipboard, MessageSquareText, Sparkles, Video } from "lucide-react";
 import { useState } from "react";
 import Card from "./Card";
 
-export default function AskAIPanel({ onGenerate, loading, result, language }) {
+export default function AskAIPanel({ onGenerate, onGenerateVideo, loading, result, language }) {
   const [topic, setTopic] = useState("");
   const [generateVideo, setGenerateVideo] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -29,14 +29,22 @@ export default function AskAIPanel({ onGenerate, loading, result, language }) {
 
   return (
     <Card
-      title="Ask AI"
-      subtitle="Chat-style script generation for breaking sports stories, shorts, and video prompts."
+      title="Script Generator"
+      subtitle="Chat-style scripting workspace for sports prompts, multilingual scripts, and optional video prompts."
       className="h-full"
     >
       <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4">
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Prompt</p>
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/12 text-cyan-200">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Ask about sports...</p>
+                <p className="text-sm text-slate-300">Generate a fresh script in {language === "en" ? "English" : "Telugu"}.</p>
+              </div>
+            </div>
             <textarea
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
@@ -58,14 +66,31 @@ export default function AskAIPanel({ onGenerate, loading, result, language }) {
             />
           </label>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="hero-cta w-full justify-center disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <Sparkles className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} />
-            <span>{loading ? "Generating script..." : `Generate Script (${language === "en" ? "English" : "Telugu"})`}</span>
-          </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="hero-cta w-full justify-center disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <Sparkles className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} />
+              <span>{loading ? "Generating..." : "Generate Script"}</span>
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={async () => {
+                if (!topic.trim()) {
+                  return;
+                }
+                setGenerateVideo(true);
+                await onGenerateVideo({ topic, generate_video: true });
+              }}
+              className="action-btn-secondary h-14 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Video className="h-4 w-4" />
+              Generate Video
+            </button>
+          </div>
         </form>
 
         <div className="flex min-h-[320px] flex-col rounded-[30px] border border-white/10 bg-slate-950/35 p-4">
@@ -82,6 +107,15 @@ export default function AskAIPanel({ onGenerate, loading, result, language }) {
 
           {result ? (
             <div className="custom-scroll space-y-4 overflow-y-auto pr-1">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center gap-2 text-sm text-slate-300">
+                  <MessageSquareText className="h-4 w-4 text-emerald-300" />
+                  <span>AI response</span>
+                </div>
+                <p className="mt-3 text-sm text-slate-400">
+                  Ready to copy into your workflow or use as the base for the next automated video.
+                </p>
+              </div>
               <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/8 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-cyan-200">Title</p>
                 <p className="mt-2 text-base font-medium text-white">{result.title}</p>

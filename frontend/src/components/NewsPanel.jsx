@@ -3,15 +3,15 @@ import { formatTimestamp } from "../lib/formatters";
 import Card from "./Card";
 import EmptyState from "./shared/EmptyState";
 
-export default function NewsPanel({ news }) {
+export default function NewsPanel({ news, refreshing }) {
   return (
     <Card
       title="Live Sports News"
-      subtitle="Fresh stories flowing into the automation engine."
+      subtitle="Auto-refreshing sports headlines for script and video generation."
       action={
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-200">
-          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-          Auto-refreshing
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          Every 15 min
         </div>
       }
       className="h-full"
@@ -36,14 +36,18 @@ export default function NewsPanel({ news }) {
               className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/20 hover:shadow-[0_18px_45px_rgba(8,47,73,0.35)]"
             >
               <div className="relative overflow-hidden rounded-[22px] border border-white/10">
-                <div className="flex h-40 items-center justify-center bg-[linear-gradient(135deg,rgba(14,165,233,0.9),rgba(45,212,191,0.75),rgba(99,102,241,0.78))] text-slate-950">
-                  <div className="text-center">
-                    <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
-                      <Newspaper className="h-5 w-5" />
+                {item.image ? (
+                  <img src={item.image} alt={item.title} className="h-40 w-full object-cover transition duration-500 group-hover:scale-105" />
+                ) : (
+                  <div className="flex h-40 items-center justify-center bg-[linear-gradient(135deg,rgba(14,165,233,0.9),rgba(45,212,191,0.75),rgba(99,102,241,0.78))] text-slate-950">
+                    <div className="text-center">
+                      <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+                        <Newspaper className="h-5 w-5" />
+                      </div>
+                      <p className="text-xs uppercase tracking-[0.32em]">Story {index + 1}</p>
                     </div>
-                    <p className="text-xs uppercase tracking-[0.32em]">Story {index + 1}</p>
                   </div>
-                </div>
+                )}
                 <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-slate-950/65 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-200 backdrop-blur">
                   <TrendingUp className="h-3.5 w-3.5" />
                   {item.category}

@@ -62,7 +62,7 @@
 
   .hero-cta {
     @apply inline-flex h-14 items-center gap-3 rounded-2xl px-6 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition duration-300;
-    background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 45%, #8b5cf6 100%);
+    background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 48%, #22c55e 100%);
     box-shadow: 0 18px 45px rgba(59, 130, 246, 0.35);
   }
 

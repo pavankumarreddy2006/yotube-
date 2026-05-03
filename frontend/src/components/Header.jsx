@@ -1,15 +1,20 @@
-import { Bell, Clock3, RefreshCw, Sparkles, UserCircle2, Wifi } from "lucide-react";
+import { Activity, Bell, RefreshCw, Sparkles, Wifi } from "lucide-react";
 import { formatTimestamp } from "../lib/formatters";
 
-function AppStatus({ active }) {
+function AppStatus({ status }) {
+  const tone =
+    status === "Running"
+      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+      : status === "Failed"
+        ? "border-rose-400/25 bg-rose-400/10 text-rose-200"
+        : "border-slate-400/20 bg-slate-400/10 text-slate-200";
+
+  const dotTone = status === "Running" ? "bg-emerald-400 shadow-[0_0_16px_rgba(74,222,128,0.9)]" : status === "Failed" ? "bg-rose-400" : "bg-slate-300";
+
   return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${
-        active ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-rose-400/25 bg-rose-400/10 text-rose-200"
-      }`}
-    >
-      <span className={`h-2.5 w-2.5 rounded-full ${active ? "bg-emerald-400 shadow-[0_0_16px_rgba(74,222,128,0.9)]" : "bg-rose-400"}`} />
-      <span>{active ? "Running" : "Idle"}</span>
+    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${tone}`}>
+      <span className={`h-2.5 w-2.5 rounded-full ${dotTone}`} />
+      <span>{status}</span>
     </div>
   );
 }
@@ -32,20 +37,20 @@ function Toggle({ checked, onChange }) {
 }
 
 export default function Header({ status, refreshing, liveRefresh, setLiveRefresh, onRefresh, config }) {
-  const active = status?.running && !status?.failed;
+  const headerStatus = status?.failed ? "Error" : status?.running ? "Running" : "Idle";
 
   return (
     <header className="panel-surface overflow-hidden px-4 py-4 sm:px-5 lg:px-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(59,130,246,0.85),rgba(139,92,246,0.9))] shadow-[0_18px_45px_rgba(37,99,235,0.28)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#38bdf8,#3b82f6,#22c55e)] shadow-[0_18px_45px_rgba(37,99,235,0.28)]">
             <Sparkles className="h-5 w-5 text-slate-950" />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">AI Sports Automation</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Sports Content Control Center</p>
             <div className="mt-1 flex flex-wrap items-center gap-3">
-              <h1 className="font-display text-xl font-semibold text-white sm:text-2xl">Operations Dashboard</h1>
-              <AppStatus active={active} />
+              <h1 className="font-display text-xl font-semibold text-white sm:text-2xl">AI Sports Automation Studio</h1>
+              <AppStatus status={headerStatus} />
             </div>
           </div>
         </div>
@@ -53,10 +58,11 @@ export default function Header({ status, refreshing, liveRefresh, setLiveRefresh
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="info-chip">
             <div className="info-chip-label">
-              <Clock3 className="h-4 w-4" />
-              Last Run
+              <Activity className="h-4 w-4" />
+              Pipeline
             </div>
-            <div className="info-chip-value">{formatTimestamp(status?.lastRunTime)}</div>
+            <div className="info-chip-value">{status?.currentTask || "Waiting for the next automation cycle"}</div>
+            <div className="mt-1 text-xs text-slate-500">Last run: {formatTimestamp(status?.lastRunTime)}</div>
           </div>
 
           <div className="info-chip">
@@ -88,11 +94,8 @@ export default function Header({ status, refreshing, liveRefresh, setLiveRefresh
           <div className="info-chip">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="info-chip-label">
-                  <UserCircle2 className="h-4 w-4" />
-                  Workspace
-                </div>
-                <div className="info-chip-value">Studio Admin</div>
+                <div className="info-chip-label">Alerts</div>
+                <div className="info-chip-value">{status?.notifications?.length || 0} active notices</div>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300">
                 <Bell className="h-4 w-4" />
