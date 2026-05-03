@@ -173,10 +173,10 @@ def _write_subtitles(script: str, output_path: Path) -> str | None:
     return str(output_path)
 
 
-def _probe_duration(path: str | Path) -> float:
+def _probe_duration(path: str | Path) -> float | None:
     video_path = Path(str(path))
     if not video_path.exists():
-        return 0.0
+        return None
 
     command = [
         settings.ffprobe_path,
@@ -192,7 +192,8 @@ def _probe_duration(path: str | Path) -> float:
         result = subprocess.run(command, check=True, capture_output=True, text=True)
         return float((result.stdout or "0").strip() or 0)
     except Exception:
-        return 0.0
+        logger.warning("ffprobe unavailable or failed for %s; skipping duration check", video_path)
+        return None
 
 
 def _quality_check_video(path: str | None, *, min_seconds: int, label: str) -> list[str]:
@@ -209,10 +210,8 @@ def _quality_check_video(path: str | None, *, min_seconds: int, label: str) -> l
 
     if settings.enable_quality_checks:
         duration = _probe_duration(file_path)
-        if duration and duration < min_seconds:
+        if duration is not None and duration < min_seconds:
             issues.append(f"{label} duration too short ({duration:.1f}s)")
-        elif duration == 0:
-            issues.append(f"{label} duration unavailable")
     return issues
 
 
