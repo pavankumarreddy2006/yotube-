@@ -1,6 +1,6 @@
-# Frontend Dashboard
+# Frontend Web Application
 
-React + Tailwind dashboard for monitoring and controlling the Telugu YouTube sports bot.
+React + Tailwind web application for monitoring and controlling the Telugu YouTube sports automation workflow.
 
 ## Run locally
 

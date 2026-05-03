@@ -1,10 +1,10 @@
 # Telugu YouTube Sports Automation
 
-This project combines a FastAPI backend, a React dashboard, and a resilient content pipeline for a Telugu sports YouTube workflow. It is designed to keep running even when optional external services are unavailable.
+This project combines a FastAPI backend, a React web application, and a resilient content pipeline for a Telugu sports YouTube workflow. It is designed to keep running even when optional external services are unavailable.
 
 ## Main files
 
-- `app.py`: FastAPI web application and dashboard endpoints
+- `app.py`: FastAPI web application and API endpoints
 - `main.py`: pipeline runner
 - `data.py`: topic collection and fallback stories
 - `content.py`: content generation and fallback templates
@@ -12,7 +12,7 @@ This project combines a FastAPI backend, a React dashboard, and a resilient cont
 - `thumbnail_generator.py`: Pillow-based thumbnail renderer
 - `video.py`: FFmpeg video creation
 - `upload.py`: YouTube upload flow
-- `frontend/`: Vite React dashboard
+- `frontend/`: Vite React web application
 
 ## Setup
 

@@ -15,7 +15,7 @@ export default function Header({ status, refreshing, liveRefresh, setLiveRefresh
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-3">
               <h1 className="font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                Telugu Sports Bot Dashboard
+                Telugu Sports Automation Web Application
               </h1>
               <StatusPill status={status?.status || "Idle"} active={active} />
             </div>
