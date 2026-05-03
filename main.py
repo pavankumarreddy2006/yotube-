@@ -356,9 +356,11 @@ def upload_video_safe(
             thumbnail_path=str(thumbnail_path),
         )
     except Exception as exc:
-        logger.error("Upload failed: %s", exc)
-        send_upload_failure("upload", str(exc)[:260])
-        return f"upload-failed: {str(exc)[:180]}"
+        message = str(exc).strip() or "Unknown upload error"
+        logger.error("Upload failed: %s", message)
+        _append_log(f"Upload failed: {message}", level="error", stage="upload")
+        send_upload_failure("upload", message[:260])
+        return f"upload-failed: {message[:220]}"
 
 
 def _attempt_uploads(

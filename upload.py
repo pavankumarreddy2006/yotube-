@@ -5,6 +5,7 @@ from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 from settings import settings
@@ -15,6 +16,20 @@ logger = get_logger(__name__)
 
 
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+
+
+def _extract_google_error(exc: Exception) -> str:
+    if isinstance(exc, HttpError):
+        status = getattr(exc.resp, "status", "unknown")
+        try:
+            payload = exc.error_details if getattr(exc, "error_details", None) else []
+        except Exception:
+            payload = []
+        if payload:
+            detail = "; ".join(str(item.get("reason") or item.get("message") or item) for item in payload)
+            return f"YouTube API error {status}: {detail}"
+        return f"YouTube API error {status}: {exc}"
+    return str(exc)
 
 # Upload a finished video to YouTube using the refresh token stored in .env.
 # The function refreshes the OAuth access token automatically and submits the
@@ -52,31 +67,41 @@ def upload_video(
         client_secret=settings.youtube_client_secret,
         scopes=YOUTUBE_SCOPES,
     )
-    credentials.refresh(Request())
-    youtube = build("youtube", "v3", credentials=credentials)
+    try:
+        credentials.refresh(Request())
+        youtube = build("youtube", "v3", credentials=credentials)
+    except Exception as exc:
+        message = _extract_google_error(exc)
+        logger.error("YouTube authentication failed: %s", message)
+        raise RuntimeError(message) from exc
 
     def operation() -> str:
-        request = youtube.videos().insert(
-            part="snippet,status",
-            body={
-                "snippet": {
-                    "title": title[:100],
-                    "description": description,
-                    "tags": tags[:500],
-                    "categoryId": "17",
+        try:
+            request = youtube.videos().insert(
+                part="snippet,status",
+                body={
+                    "snippet": {
+                        "title": title[:100],
+                        "description": description,
+                        "tags": tags[:500],
+                        "categoryId": "17",
+                    },
+                    "status": {
+                        "privacyStatus": settings.public_visibility,
+                        "selfDeclaredMadeForKids": False,
+                    },
                 },
-                "status": {
-                    "privacyStatus": settings.public_visibility,
-                    "selfDeclaredMadeForKids": False,
-                },
-            },
-            media_body=MediaFileUpload(str(video_path), resumable=True),
-        )
-        response = None
-        while response is None:
-            _, response = request.next_chunk()
-        video_id = response["id"]
-        youtube.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(str(thumbnail_path))).execute()
-        return f"https://www.youtube.com/watch?v={video_id}"
+                media_body=MediaFileUpload(str(video_path), resumable=True),
+            )
+            response = None
+            while response is None:
+                _, response = request.next_chunk()
+            video_id = response["id"]
+            youtube.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(str(thumbnail_path))).execute()
+            return f"https://www.youtube.com/watch?v={video_id}"
+        except Exception as exc:
+            message = _extract_google_error(exc)
+            logger.error("YouTube upload request failed: %s", message)
+            raise RuntimeError(message) from exc
 
     return retry(operation, operation_name=f"upload -> {video_path}")

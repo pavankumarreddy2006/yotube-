@@ -84,8 +84,11 @@ def _topic_value(value: Any, key: str, default: Any = "") -> Any:
 def _to_output_url(file_path: str | None) -> str:
     if not file_path:
         return ""
+    candidate = Path(str(file_path))
+    if not candidate.exists():
+        return ""
     try:
-        relative_path = Path(str(file_path)).resolve().relative_to(OUTPUT_DIR.resolve())
+        relative_path = candidate.resolve().relative_to(OUTPUT_DIR.resolve())
     except Exception:
         return ""
     web_path = str(relative_path).replace("\\", "/")
