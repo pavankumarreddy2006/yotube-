@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -132,19 +132,316 @@ def _load_status() -> dict[str, Any]:
     return status
 
 
+def _fallback_dashboard_html() -> str:
+    return """<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Telugu Sports Automation Dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1020;
+        --panel: rgba(15, 23, 42, 0.9);
+        --panel-border: rgba(148, 163, 184, 0.18);
+        --accent: #f97316;
+        --accent-2: #22c55e;
+        --text: #e5eefb;
+        --muted: #9fb0cc;
+        --danger: #f87171;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(249, 115, 22, 0.2), transparent 28%),
+          radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 22%),
+          linear-gradient(180deg, #08101f 0%, #0b1020 100%);
+      }
+      .wrap {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+      .hero, .grid > section {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 22px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+        backdrop-filter: blur(10px);
+      }
+      .hero {
+        padding: 28px;
+        margin-bottom: 20px;
+      }
+      .eyebrow {
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(30px, 5vw, 48px);
+      }
+      .sub {
+        color: var(--muted);
+        max-width: 760px;
+        line-height: 1.6;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 20px;
+      }
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .primary { background: var(--accent); color: white; }
+      .secondary { background: #18253f; color: var(--text); }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+      }
+      .grid > section { padding: 20px; }
+      h2 {
+        margin: 0 0 14px;
+        font-size: 18px;
+      }
+      .label {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      .value {
+        font-size: 16px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .pill {
+        display: inline-flex;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(34, 197, 94, 0.16);
+        color: #c6f6d5;
+        font-weight: 700;
+      }
+      .pill.fail {
+        background: rgba(248, 113, 113, 0.16);
+        color: #fecaca;
+      }
+      .log-list {
+        max-height: 340px;
+        overflow: auto;
+        padding-right: 6px;
+      }
+      .log-item {
+        padding: 10px 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.12);
+      }
+      .log-item:first-child { border-top: 0; }
+      .muted { color: var(--muted); }
+      img {
+        width: 100%;
+        border-radius: 18px;
+        border: 1px solid var(--panel-border);
+        margin-top: 12px;
+      }
+      ul {
+        padding-left: 18px;
+        margin: 10px 0 0;
+      }
+      .banner {
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="hero">
+        <div class="eyebrow">Render-safe dashboard</div>
+        <h1>Telugu Sports Automation</h1>
+        <div class="sub">The React build is missing on this deployment, so this built-in dashboard is rendering directly from FastAPI and loading live data from the same API.</div>
+        <div class="actions">
+          <button class="primary" onclick="runAction('/run', 'POST')">Run pipeline</button>
+          <button class="secondary" onclick="runAction('/retry', 'POST')">Retry pipeline</button>
+          <button class="secondary" onclick="runAction('/upload', 'POST')">Upload latest</button>
+          <button class="secondary" onclick="loadDashboard()">Refresh now</button>
+        </div>
+        <div id="banner" class="banner">Loading dashboard data...</div>
+      </section>
+
+      <div class="grid">
+        <section>
+          <h2>Status</h2>
+          <div id="status-pill" class="pill">Loading</div>
+          <div class="label">Current task</div>
+          <div id="current-task" class="value">-</div>
+          <div class="label">Last run</div>
+          <div id="last-run" class="value">-</div>
+        </section>
+
+        <section>
+          <h2>Selected News</h2>
+          <div id="news-title" class="value">-</div>
+          <div class="label">Summary</div>
+          <div id="news-summary" class="value muted">No summary loaded yet.</div>
+        </section>
+
+        <section>
+          <h2>Decision</h2>
+          <div class="label">Action</div>
+          <div id="decision-action" class="value">-</div>
+          <div class="label">Score</div>
+          <div id="decision-score" class="value">-</div>
+          <div class="label">Reasons</div>
+          <ul id="decision-reasons"></ul>
+        </section>
+
+        <section>
+          <h2>Thumbnail</h2>
+          <div id="thumbnail-text" class="value muted">No thumbnail text yet.</div>
+          <img id="thumbnail-image" alt="Thumbnail preview" style="display:none" />
+        </section>
+
+        <section>
+          <h2>Generated Content</h2>
+          <div class="label">Shorts script</div>
+          <div id="shorts-script" class="value muted">No script yet.</div>
+          <div class="label">Hashtags</div>
+          <div id="hashtags" class="value muted">-</div>
+        </section>
+
+        <section>
+          <h2>Logs</h2>
+          <div id="logs" class="log-list muted">Waiting for logs...</div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      async function fetchJson(path) {
+        const response = await fetch(path, { headers: { "Accept": "application/json" } });
+        if (!response.ok) {
+          throw new Error(path + " failed with " + response.status);
+        }
+        return response.json();
+      }
+
+      function setText(id, value) {
+        document.getElementById(id).textContent = value || "-";
+      }
+
+      async function runAction(path, method) {
+        const banner = document.getElementById("banner");
+        banner.textContent = "Running " + path + "...";
+        try {
+          const response = await fetch(path, { method: method });
+          const data = await response.json();
+          banner.textContent = data.status || data.error || "Done";
+          setTimeout(loadDashboard, 1200);
+        } catch (error) {
+          banner.textContent = error.message;
+        }
+      }
+
+      async function loadDashboard() {
+        const banner = document.getElementById("banner");
+        banner.textContent = "Refreshing live API data...";
+        try {
+          const [status, news, decision, content, logs] = await Promise.all([
+            fetchJson("/status"),
+            fetchJson("/news"),
+            fetchJson("/decision"),
+            fetchJson("/content"),
+            fetchJson("/logs")
+          ]);
+
+          const failed = Boolean(status.failed);
+          const pill = document.getElementById("status-pill");
+          pill.textContent = status.status || (status.running ? "Running" : "Idle");
+          pill.className = failed ? "pill fail" : "pill";
+
+          setText("current-task", status.current_task);
+          setText("last-run", status.last_run_time);
+
+          const firstNews = (news.items || [])[0] || {};
+          setText("news-title", firstNews.title || "No topic selected");
+          setText("news-summary", firstNews.summary || "No summary available.");
+
+          setText("decision-action", decision.action);
+          setText("decision-score", String(decision.score ?? "-"));
+
+          const reasons = document.getElementById("decision-reasons");
+          reasons.innerHTML = "";
+          (decision.reasons || []).forEach((reason) => {
+            const li = document.createElement("li");
+            li.textContent = reason;
+            reasons.appendChild(li);
+          });
+          if (!reasons.children.length) {
+            const li = document.createElement("li");
+            li.textContent = "No decision reasons available.";
+            reasons.appendChild(li);
+          }
+
+          setText("thumbnail-text", status.thumbnail_text || content.thumbnail_text || "No thumbnail text yet.");
+          const image = document.getElementById("thumbnail-image");
+          if (status.thumbnail_url) {
+            image.src = status.thumbnail_url;
+            image.style.display = "block";
+          } else {
+            image.style.display = "none";
+          }
+
+          setText("shorts-script", content.shorts_script || "No shorts script generated yet.");
+          const hashtags = Array.isArray(content.hashtags) ? content.hashtags.join(" ") : (content.hashtags || "-");
+          setText("hashtags", hashtags);
+
+          const logsRoot = document.getElementById("logs");
+          logsRoot.innerHTML = "";
+          (logs.items || []).slice(-20).reverse().forEach((item) => {
+            const row = document.createElement("div");
+            row.className = "log-item";
+            row.textContent = [item.timestamp, item.level, item.message].filter(Boolean).join(" | ");
+            logsRoot.appendChild(row);
+          });
+          if (!logsRoot.children.length) {
+            logsRoot.textContent = "No logs available yet.";
+          }
+
+          banner.textContent = "Dashboard loaded from API fallback view.";
+        } catch (error) {
+          banner.textContent = "Failed to load dashboard: " + error.message;
+        }
+      }
+
+      loadDashboard();
+      setInterval(loadDashboard, 30000);
+    </script>
+  </body>
+</html>
+"""
+
+
 @app.get("/")
 async def root():
     if DIST_DIR.exists():
         return FileResponse(DIST_DIR / "index.html")
-    return JSONResponse(
-        {
-            "status": "ok",
-            "message": "Telugu Sports Automation API running",
-            "frontend_built": False,
-            "detail": f"Expected compiled frontend at {DIST_DIR}",
-            "dashboard_url": "/dashboard",
-        }
-    )
+    return HTMLResponse(_fallback_dashboard_html())
 
 
 @app.get("/health")
@@ -274,11 +571,5 @@ if DIST_DIR.exists():
         return _serve_frontend()
 else:
     @app.get("/dashboard")
-    async def dashboard() -> JSONResponse:
-        return JSONResponse(
-            {
-                "message": "Frontend not built yet. The web application backend is running through the API.",
-                "frontend_built": False,
-                "detail": f"Expected compiled frontend at {DIST_DIR}",
-            }
-        )
+    async def dashboard() -> HTMLResponse:
+        return HTMLResponse(_fallback_dashboard_html())
