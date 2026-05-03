@@ -772,8 +772,5 @@ def main() -> None:
     run_pipeline_logic(selected_mode, selected_language)
 
 
-from app import app
-
-
 if __name__ == "__main__":
     main()
