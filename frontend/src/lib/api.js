@@ -36,7 +36,7 @@ export async function fetchLogs() {
 }
 
 export async function triggerRun(language) {
-  const { data } = await api.post("/automation/start", { language, mode: "full" });
+  const { data } = await api.post("/start", { language, mode: "full" });
   return data;
 }
 
@@ -51,6 +51,6 @@ export async function uploadAgain() {
 }
 
 export async function generateAiScript(payload) {
-  const { data } = await api.post("/ask-ai", payload);
+  const { data } = await api.post("/ask", payload);
   return data;
 }

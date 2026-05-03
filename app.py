@@ -163,6 +163,7 @@ def _build_news_payload() -> dict[str, Any]:
                 "title": payload.get("title", "Headline unavailable"),
                 "summary": payload.get("summary", "No summary available."),
                 "source": payload.get("source", "system"),
+                "image": payload.get("image") or payload.get("image_url") or payload.get("thumbnail") or "",
                 "trending": payload.get("is_trending", False),
                 "published_at": payload.get("published_at", ""),
                 "topic": payload.get("topic", payload.get("category", "sports")),
@@ -177,6 +178,7 @@ def _build_news_payload() -> dict[str, Any]:
                 "title": selected_topic.get("title", "Headline unavailable"),
                 "summary": selected_topic.get("summary", "No summary available."),
                 "source": selected_topic.get("source", "system"),
+                "image": selected_topic.get("image") or selected_topic.get("image_url") or selected_topic.get("thumbnail") or "",
                 "trending": selected_topic.get("is_trending", False),
                 "published_at": selected_topic.get("published_at", ""),
                 "topic": selected_topic.get("topic", selected_topic.get("category", "sports")),
@@ -353,6 +355,13 @@ async def start_automation(run_request: AutomationRunRequest) -> JSONResponse:
     return JSONResponse(_launch_pipeline(mode, language))
 
 
+@app.post("/start")
+async def start_alias(run_request: AutomationRunRequest) -> JSONResponse:
+    language = normalize_language(run_request.language)
+    mode = run_request.mode or "full"
+    return JSONResponse(_launch_pipeline(mode, language))
+
+
 @app.post("/run")
 async def post_run(run_request: AutomationRunRequest) -> JSONResponse:
     language = normalize_language(run_request.language)
@@ -383,6 +392,11 @@ async def ask_ai(payload: AskAIRequest) -> JSONResponse:
         include_video_prompt=payload.generate_video,
     )
     return JSONResponse(result)
+
+
+@app.post("/ask")
+async def ask_alias(payload: AskAIRequest) -> JSONResponse:
+    return await ask_ai(payload)
 
 
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")

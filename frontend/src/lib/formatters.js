@@ -19,13 +19,24 @@ export function toArray(value, fallback = []) {
 }
 
 export function normalizeStatus(payload) {
+  const rawStatus = String(payload?.status || "").toLowerCase();
+  const derivedStatus = payload?.failed
+    ? "Failed"
+    : rawStatus.includes("upload")
+      ? "Uploading"
+      : payload?.running
+        ? "Running"
+        : rawStatus.includes("complete")
+          ? "Completed"
+          : "Idle";
+
   return {
     running: Boolean(payload?.running),
     failed: Boolean(payload?.failed),
-    status: payload?.status || (payload?.failed ? "Failed" : payload?.running ? "Processing" : "Idle"),
+    status: derivedStatus,
     currentTask: payload?.current_task || "Waiting for next run",
     currentStage: payload?.current_stage || "idle",
-    progressLabel: payload?.progress_label || payload?.status || "Idle",
+    progressLabel: payload?.progress_label || payload?.status || derivedStatus,
     lastRunTime: payload?.last_run_time || "",
     notifications: toArray(payload?.notifications, []),
     thumbnailUrl: payload?.thumbnail_url || "",
@@ -46,6 +57,7 @@ export function normalizeNews(payload) {
     title: item?.title || "Headline unavailable",
     summary: item?.summary || "No summary available.",
     source: item?.source || "system",
+    image: item?.image || item?.image_url || "",
     trending: Boolean(item?.trending || item?.is_trending),
     publishedAt: item?.published_at || "",
     topic: item?.topic || "",
@@ -95,8 +107,11 @@ export function inferLogLevel(message) {
   if (text.includes("error") || text.includes("failed")) {
     return "error";
   }
-  if (text.includes("retry") || text.includes("attempt")) {
-    return "warning";
+  if (text.includes("info") || text.includes("fetch") || text.includes("start") || text.includes("run")) {
+    return "info";
   }
-  return "success";
+  if (text.includes("success") || text.includes("complete") || text.includes("uploaded") || text.includes("created")) {
+    return "success";
+  }
+  return "info";
 }

@@ -2,33 +2,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchConfig,
   fetchContent,
-  fetchDecision,
   fetchLogs,
   fetchNews,
   fetchStatus,
   generateAiScript,
-  retryFailedTask,
   triggerRun,
   uploadAgain
 } from "../lib/api";
-import { normalizeContent, normalizeDecision, normalizeLogs, normalizeNews, normalizeStatus } from "../lib/formatters";
+import { normalizeContent, normalizeLogs, normalizeNews, normalizeStatus } from "../lib/formatters";
 
-const REFRESH_INTERVAL = 8000;
+const STATUS_REFRESH_INTERVAL = 3000;
+const NEWS_REFRESH_INTERVAL = 15 * 60 * 1000;
 
 const initialState = {
   config: null,
   status: null,
   news: [],
-  decision: null,
   content: null,
   logs: [],
   loading: true,
-  refreshing: false,
+  refreshingStatus: false,
+  refreshingNews: false,
   error: "",
   language: "te",
   actionState: {
     run: false,
-    retry: false,
     upload: false,
     askAi: false
   },
@@ -40,7 +38,7 @@ export function useDashboardData() {
   const [liveRefresh, setLiveRefresh] = useState(true);
   const mounted = useRef(true);
 
-  async function loadData({ silent = false } = {}) {
+  async function loadCoreData({ silent = false } = {}) {
     if (!mounted.current) {
       return;
     }
@@ -48,16 +46,14 @@ export function useDashboardData() {
     setState((prev) => ({
       ...prev,
       loading: silent ? prev.loading : true,
-      refreshing: silent,
+      refreshingStatus: silent,
       error: silent ? prev.error : ""
     }));
 
     try {
-      const [configData, statusData, newsData, decisionData, contentData, logsData] = await Promise.all([
+      const [configData, statusData, contentData, logsData] = await Promise.all([
         fetchConfig(),
         fetchStatus(),
-        fetchNews(),
-        fetchDecision(),
         fetchContent(),
         fetchLogs()
       ]);
@@ -71,8 +67,6 @@ export function useDashboardData() {
         ...prev,
         config: configData,
         status: normalizedStatus,
-        news: normalizeNews(newsData),
-        decision: normalizeDecision(decisionData),
         content: normalizeContent(contentData),
         logs: normalizeLogs(logsData),
         language:
@@ -80,7 +74,7 @@ export function useDashboardData() {
             ? normalizedStatus.language
             : configData?.default_language || normalizedStatus.language || prev.language || "te",
         loading: false,
-        refreshing: false,
+        refreshingStatus: false,
         error: ""
       }));
     } catch (error) {
@@ -91,8 +85,40 @@ export function useDashboardData() {
       setState((prev) => ({
         ...prev,
         loading: false,
-        refreshing: false,
+        refreshingStatus: false,
         error: error?.response?.data?.detail || error?.message || "Dashboard data could not be loaded."
+      }));
+    }
+  }
+
+  async function loadNews({ silent = false } = {}) {
+    if (!mounted.current) {
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      refreshingNews: silent
+    }));
+
+    try {
+      const newsData = await fetchNews();
+      if (!mounted.current) {
+        return;
+      }
+      setState((prev) => ({
+        ...prev,
+        news: normalizeNews(newsData),
+        refreshingNews: false
+      }));
+    } catch (error) {
+      if (!mounted.current) {
+        return;
+      }
+      setState((prev) => ({
+        ...prev,
+        refreshingNews: false,
+        error: prev.error || error?.response?.data?.detail || error?.message || "News feed could not be loaded."
       }));
     }
   }
@@ -105,7 +131,7 @@ export function useDashboardData() {
 
     try {
       await action();
-      await loadData({ silent: true });
+      await Promise.all([loadCoreData({ silent: true }), loadNews({ silent: true })]);
     } catch (error) {
       if (!mounted.current) {
         return;
@@ -127,7 +153,7 @@ export function useDashboardData() {
 
   useEffect(() => {
     mounted.current = true;
-    loadData();
+    void Promise.all([loadCoreData(), loadNews()]);
     return () => {
       mounted.current = false;
     };
@@ -138,10 +164,17 @@ export function useDashboardData() {
       return undefined;
     }
     const timer = window.setInterval(() => {
-      loadData({ silent: true });
-    }, REFRESH_INTERVAL);
+      void loadCoreData({ silent: true });
+    }, STATUS_REFRESH_INTERVAL);
     return () => window.clearInterval(timer);
   }, [liveRefresh]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadNews({ silent: true });
+    }, NEWS_REFRESH_INTERVAL);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return useMemo(
     () => ({
@@ -149,9 +182,8 @@ export function useDashboardData() {
       liveRefresh,
       setLiveRefresh,
       setLanguage: (language) => setState((prev) => ({ ...prev, language })),
-      refreshNow: () => loadData({ silent: true }),
+      refreshNow: () => Promise.all([loadCoreData({ silent: true }), loadNews({ silent: true })]),
       runNow: () => handleAction("run", () => triggerRun(state.language)),
-      retryNow: () => handleAction("retry", () => retryFailedTask(state.language)),
       uploadNow: () => handleAction("upload", uploadAgain),
       askAi: (payload) =>
         handleAction("askAi", async () => {
