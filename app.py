@@ -132,6 +132,8 @@ def _load_status() -> dict[str, Any]:
     status.setdefault("notifications", [])
     if not status.get("preview_items"):
         preview_items: list[dict[str, str]] = []
+        if latest_run.get("video"):
+            preview_items.append({"label": "Latest Video Preview", "url": _to_output_url(latest_run.get("video")), "variant": "short"})
         if latest_run.get("shorts_video"):
             preview_items.append({"label": "Shorts Preview", "url": _to_output_url(latest_run.get("shorts_video")), "variant": "short"})
         if latest_run.get("long_video"):
@@ -139,6 +141,8 @@ def _load_status() -> dict[str, Any]:
         status["preview_items"] = [item for item in preview_items if item.get("url")]
     if not status.get("youtube_links"):
         youtube_links: list[dict[str, str]] = []
+        if str(latest_run.get("upload", "")).startswith("https://"):
+            youtube_links.append({"label": "Latest Upload", "url": latest_run["upload"]})
         if str(latest_run.get("shorts_upload", "")).startswith("https://"):
             youtube_links.append({"label": "Shorts", "url": latest_run["shorts_upload"]})
         if str(latest_run.get("long_upload", "")).startswith("https://"):
@@ -236,47 +240,6 @@ def _ensure_scheduler_started() -> None:
     worker.start()
 
 
-def _fallback_dashboard_html() -> str:
-    return """<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI Sports Automation Dashboard</title>
-    <style>
-      body { font-family: Arial, sans-serif; background: #09111d; color: white; padding: 24px; }
-      .card { background: #101b2a; border: 1px solid #223349; border-radius: 18px; padding: 20px; max-width: 860px; margin: 0 auto; }
-      button, select { padding: 12px 16px; border-radius: 999px; border: 0; margin-right: 8px; }
-      button { background: #11d1b2; font-weight: bold; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h1>AI Sports Automation Dashboard</h1>
-      <p>The React build is missing, so this fallback page can still trigger the automation pipeline.</p>
-      <select id="lang">
-        <option value="te">Telugu</option>
-        <option value="en">English</option>
-      </select>
-      <button onclick="startRun()">START AUTOMATION</button>
-      <pre id="result"></pre>
-    </div>
-    <script>
-      async function startRun() {
-        const language = document.getElementById('lang').value;
-        const response = await fetch('/automation/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ language, mode: 'full' })
-        });
-        document.getElementById('result').textContent = await response.text();
-      }
-    </script>
-  </body>
-</html>
-"""
-
-
 @app.on_event("startup")
 async def on_startup() -> None:
     _ensure_scheduler_started()
@@ -286,7 +249,7 @@ async def on_startup() -> None:
 async def root():
     if DIST_DIR.exists():
         return FileResponse(DIST_DIR / "index.html")
-    return HTMLResponse(_fallback_dashboard_html())
+    raise HTTPException(status_code=503, detail="Frontend build not found")
 
 
 @app.get("/health")
@@ -438,5 +401,5 @@ if DIST_DIR.exists():
         return _serve_frontend()
 else:
     @app.get("/dashboard")
-    async def dashboard() -> HTMLResponse:
-        return HTMLResponse(_fallback_dashboard_html())
+    async def dashboard() -> JSONResponse:
+        raise HTTPException(status_code=503, detail="Frontend build not found")

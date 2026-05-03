@@ -1,199 +1,162 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  fetchConfig,
-  fetchContent,
-  fetchLogs,
-  fetchNews,
-  fetchStatus,
-  generateAiScript,
-  triggerRun,
-  uploadAgain
-} from "../lib/api";
-import { normalizeContent, normalizeLogs, normalizeNews, normalizeStatus } from "../lib/formatters";
+import { askSportsAi, fetchLogs, fetchNews, fetchStatus, startAutomation } from "../lib/api";
+import { normalizeLogs, normalizeNews, normalizeStatus } from "../lib/formatters";
 
 const STATUS_REFRESH_INTERVAL = 3000;
 const NEWS_REFRESH_INTERVAL = 15 * 60 * 1000;
 
 const initialState = {
-  config: null,
+  loading: true,
+  error: "",
   status: null,
   news: [],
-  content: null,
   logs: [],
-  loading: true,
-  refreshingStatus: false,
-  refreshingNews: false,
-  error: "",
   language: "te",
+  languageTouched: false,
+  askAiResult: null,
   actionState: {
     run: false,
-    upload: false,
-    askAi: false
+    askAi: false,
   },
-  askAiResult: null
 };
 
 export function useDashboardData() {
   const [state, setState] = useState(initialState);
-  const [liveRefresh, setLiveRefresh] = useState(true);
-  const mounted = useRef(true);
+  const mountedRef = useRef(true);
 
-  async function loadCoreData({ silent = false } = {}) {
-    if (!mounted.current) {
+  async function loadStatusAndLogs({ silent = false } = {}) {
+    if (!mountedRef.current) {
       return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      loading: silent ? prev.loading : true,
-      refreshingStatus: silent,
-      error: silent ? prev.error : ""
-    }));
+    if (!silent) {
+      setState((prev) => ({ ...prev, loading: true, error: "" }));
+    }
 
     try {
-      const [configData, statusData, contentData, logsData] = await Promise.all([
-        fetchConfig(),
-        fetchStatus(),
-        fetchContent(),
-        fetchLogs()
-      ]);
-
-      if (!mounted.current) {
+      const [statusPayload, logsPayload] = await Promise.all([fetchStatus(), fetchLogs()]);
+      if (!mountedRef.current) {
         return;
       }
 
-      const normalizedStatus = normalizeStatus(statusData);
+      const status = normalizeStatus(statusPayload);
       setState((prev) => ({
         ...prev,
-        config: configData,
-        status: normalizedStatus,
-        content: normalizeContent(contentData),
-        logs: normalizeLogs(logsData),
-        language:
-          normalizedStatus.running || normalizedStatus.lastRunTime
-            ? normalizedStatus.language
-            : configData?.default_language || normalizedStatus.language || prev.language || "te",
         loading: false,
-        refreshingStatus: false,
-        error: ""
+        error: "",
+        status,
+        logs: normalizeLogs(logsPayload),
+        language: prev.languageTouched ? prev.language : status.language || prev.language,
       }));
     } catch (error) {
-      if (!mounted.current) {
+      if (!mountedRef.current) {
         return;
       }
 
       setState((prev) => ({
         ...prev,
         loading: false,
-        refreshingStatus: false,
-        error: error?.response?.data?.detail || error?.message || "Dashboard data could not be loaded."
+        error: error?.response?.data?.detail || error?.message || "Could not load dashboard status.",
       }));
     }
   }
 
   async function loadNews({ silent = false } = {}) {
-    if (!mounted.current) {
+    if (!mountedRef.current) {
       return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      refreshingNews: silent
-    }));
-
     try {
-      const newsData = await fetchNews();
-      if (!mounted.current) {
+      const newsPayload = await fetchNews();
+      if (!mountedRef.current) {
         return;
       }
       setState((prev) => ({
         ...prev,
-        news: normalizeNews(newsData),
-        refreshingNews: false
+        news: normalizeNews(newsPayload),
+        loading: silent ? prev.loading : false,
       }));
     } catch (error) {
-      if (!mounted.current) {
+      if (!mountedRef.current) {
         return;
       }
       setState((prev) => ({
         ...prev,
-        refreshingNews: false,
-        error: prev.error || error?.response?.data?.detail || error?.message || "News feed could not be loaded."
+        loading: false,
+        error: prev.error || error?.response?.data?.detail || error?.message || "Could not load sports news.",
       }));
     }
   }
 
-  async function handleAction(key, action) {
+  async function runAction(key, action) {
     setState((prev) => ({
       ...prev,
-      actionState: { ...prev.actionState, [key]: true }
+      actionState: { ...prev.actionState, [key]: true },
+      error: "",
     }));
 
     try {
       await action();
-      await Promise.all([loadCoreData({ silent: true }), loadNews({ silent: true })]);
+      await loadStatusAndLogs({ silent: true });
     } catch (error) {
-      if (!mounted.current) {
+      if (!mountedRef.current) {
         return;
       }
+
       setState((prev) => ({
         ...prev,
-        error: error?.response?.data?.detail || error?.message || "Action failed. Please try again."
+        error: error?.response?.data?.detail || error?.message || "Action failed.",
       }));
     } finally {
-      if (!mounted.current) {
+      if (!mountedRef.current) {
         return;
       }
+
       setState((prev) => ({
         ...prev,
-        actionState: { ...prev.actionState, [key]: false }
+        actionState: { ...prev.actionState, [key]: false },
       }));
     }
   }
 
   useEffect(() => {
-    mounted.current = true;
-    void Promise.all([loadCoreData(), loadNews()]);
+    mountedRef.current = true;
+    void Promise.all([loadStatusAndLogs(), loadNews()]);
     return () => {
-      mounted.current = false;
+      mountedRef.current = false;
     };
   }, []);
 
   useEffect(() => {
-    if (!liveRefresh) {
-      return undefined;
-    }
     const timer = window.setInterval(() => {
-      void loadCoreData({ silent: true });
+      void loadStatusAndLogs({ silent: true });
     }, STATUS_REFRESH_INTERVAL);
+
     return () => window.clearInterval(timer);
-  }, [liveRefresh]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       void loadNews({ silent: true });
     }, NEWS_REFRESH_INTERVAL);
+
     return () => window.clearInterval(timer);
   }, []);
 
   return useMemo(
     () => ({
       ...state,
-      liveRefresh,
-      setLiveRefresh,
-      setLanguage: (language) => setState((prev) => ({ ...prev, language })),
-      refreshNow: () => Promise.all([loadCoreData({ silent: true }), loadNews({ silent: true })]),
-      runNow: () => handleAction("run", () => triggerRun(state.language)),
-      uploadNow: () => handleAction("upload", uploadAgain),
+      setLanguage: (language) => setState((prev) => ({ ...prev, language, languageTouched: true })),
+      runNow: () => runAction("run", () => startAutomation(state.language)),
       askAi: (payload) =>
-        handleAction("askAi", async () => {
-          const result = await generateAiScript({ ...payload, language: state.language });
-          if (!mounted.current) {
+        runAction("askAi", async () => {
+          const result = await askSportsAi({ ...payload, language: state.language });
+          if (!mountedRef.current) {
             return;
           }
           setState((prev) => ({ ...prev, askAiResult: result }));
-        })
+        }),
     }),
-    [liveRefresh, state]
+    [state]
   );
 }

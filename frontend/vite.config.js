@@ -9,12 +9,9 @@ export default defineConfig({
     proxy: {
       "/status": "http://localhost:8000",
       "/news": "http://localhost:8000",
-      "/decision": "http://localhost:8000",
-      "/content": "http://localhost:8000",
       "/logs": "http://localhost:8000",
-      "/run": "http://localhost:8000",
-      "/retry": "http://localhost:8000",
-      "/upload": "http://localhost:8000"
+      "/start": "http://localhost:8000",
+      "/ask": "http://localhost:8000"
     }
   }
 });
