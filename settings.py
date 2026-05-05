@@ -33,6 +33,26 @@ class Settings:
     telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    openai_tts_model: str = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+    openai_tts_voice: str = os.getenv("OPENAI_TTS_VOICE", "alloy")
+    elevenlabs_api_key: str = os.getenv("ELEVENLABS_API_KEY", "")
+    elevenlabs_voice_id: str = os.getenv("ELEVENLABS_VOICE_ID", "")
+    elevenlabs_model: str = os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
+    elevenlabs_stability: float = float(os.getenv("ELEVENLABS_STABILITY", "0.45"))
+    elevenlabs_similarity_boost: float = float(os.getenv("ELEVENLABS_SIMILARITY_BOOST", "0.8"))
+    elevenlabs_style: float = float(os.getenv("ELEVENLABS_STYLE", "0.3"))
+    azure_tts_key: str = os.getenv("AZURE_TTS_KEY", "")
+    azure_tts_region: str = os.getenv("AZURE_TTS_REGION", "")
+    azure_tts_voice: str = os.getenv("AZURE_TTS_VOICE", "te-IN-MohanNeural")
+    azure_tts_style: str = os.getenv("AZURE_TTS_STYLE", "newscast")
+    azure_tts_style_degree: str = os.getenv("AZURE_TTS_STYLE_DEGREE", "1.1")
+    azure_tts_output_format: str = os.getenv(
+        "AZURE_TTS_OUTPUT_FORMAT",
+        "audio-24khz-160kbitrate-mono-mp3",
+    )
+    tts_provider: str = os.getenv("TTS_PROVIDER", "elevenlabs")
+    tts_rate: str = os.getenv("TTS_RATE", "0%")
+    tts_pitch: str = os.getenv("TTS_PITCH", "0%")
     default_language: str = os.getenv("DEFAULT_LANGUAGE", "te")
     ffmpeg_path: str = os.getenv("FFMPEG_PATH", "ffmpeg")
     ffprobe_path: str = os.getenv("FFPROBE_PATH", "ffprobe")
@@ -41,10 +61,7 @@ class Settings:
     background_music_path: str = os.getenv("BACKGROUND_MUSIC_PATH", str(ASSETS_DIR / "background_music.mp3"))
     intro_video_path: str = os.getenv("INTRO_VIDEO_PATH", str(ASSETS_DIR / "intro.mp4"))
     outro_video_path: str = os.getenv("OUTRO_VIDEO_PATH", str(ASSETS_DIR / "outro.mp4"))
-    thumbnail_font_path: str = os.getenv(
-        "THUMBNAIL_FONT_PATH",
-        str(ASSETS_DIR / "DejaVuSans-Bold.ttf"),
-    )
+    thumbnail_font_path: str = os.getenv("THUMBNAIL_FONT_PATH", str(ASSETS_DIR / "DejaVuSans-Bold.ttf"))
     channel_name: str = os.getenv("CHANNEL_NAME", "Telugu Sports Update")
     max_daily_highlights: int = int(os.getenv("MAX_DAILY_HIGHLIGHTS", "7"))
     min_daily_highlights: int = int(os.getenv("MIN_DAILY_HIGHLIGHTS", "5"))
@@ -60,6 +77,7 @@ class Settings:
     enable_quality_checks: bool = _get_bool("ENABLE_QUALITY_CHECKS", True)
     public_visibility: str = os.getenv("YOUTUBE_PRIVACY_STATUS", "public")
     retain_run_artifacts: int = max(1, int(os.getenv("RETAIN_RUN_ARTIFACTS", "1")))
+    artifact_ttl_hours: int = max(1, int(os.getenv("ARTIFACT_TTL_HOURS", "24")))
 
     @property
     def has_openai(self) -> bool:

@@ -15,7 +15,7 @@ export default function SettingsPage({ dashboard }) {
         {configLoading ? <p className="mt-4 text-sm text-slate-400">Loading configuration...</p> : null}
       </SectionCard>
 
-      <SectionCard title="Current Runtime State" description="Live operational values from `/status`.">
+      <SectionCard title="Current Runtime State" description="Live operational values from `/status`, aligned with the dashboard state.">
         <div className="space-y-4">
           <SettingRow label="Status" value={status?.statusLabel || "Idle"} />
           <SettingRow label="Current task" value={status?.currentTask || "Waiting for next run"} />

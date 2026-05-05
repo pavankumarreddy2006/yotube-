@@ -102,7 +102,7 @@ def _cleanup_old_artifacts(*, keep_work_dir: str | Path | None = None) -> None:
         return
 
     now = datetime.now().timestamp()
-    expiry_seconds = 24 * 60 * 60
+    expiry_seconds = settings.artifact_ttl_hours * 60 * 60
 
     keep_count = max(1, settings.retain_run_artifacts)
     keep_paths: set[Path] = set()
@@ -329,6 +329,26 @@ def _quality_check_video(path: str | None, *, min_seconds: int, label: str) -> l
     return issues
 
 
+def _validate_thumbnail(path: str | Path | None) -> list[str]:
+    if not path:
+        return ["thumbnail missing"]
+    file_path = Path(str(path))
+    if not file_path.exists():
+        return ["thumbnail file not found"]
+    if file_path.stat().st_size < 10 * 1024:
+        return ["thumbnail file too small"]
+    try:
+        from PIL import Image
+
+        with Image.open(file_path) as image:
+            width, height = image.size
+            if width < 1280 or height < 720:
+                return [f"thumbnail too small ({width}x{height})"]
+    except Exception as exc:  # noqa: BLE001
+        return [f"thumbnail validation failed: {exc}"]
+    return []
+
+
 def generate_voice_track(script: str, output_path: Path, language: str) -> str | None:
     if not settings.enable_voice or not script.strip():
         return None
@@ -536,7 +556,7 @@ def _run_once(*, mode: str, language: str) -> None:
     work_dir = OUTPUT_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_{slugify(content.title or selected_topic.title)}"
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    thumbnail_path = str(create_thumbnail(content.thumbnail_text or "SPORTS UPDATE", content.thumbnail_idea, work_dir / "thumbnail.jpg"))
+    thumbnail_path = str(create_thumbnail(content.thumbnail_text or "షాక్ న్యూస్", content.thumbnail_idea, work_dir / "thumbnail.jpg"))
 
     dump_json(
         {
@@ -590,6 +610,10 @@ def _run_once(*, mode: str, language: str) -> None:
         detail="Long and short videos created with subtitles, visuals, and background music.",
         telegram_stage="video_created",
     )
+
+    thumbnail_issues = _validate_thumbnail(thumbnail_path)
+    if thumbnail_issues:
+        raise RuntimeError("; ".join(thumbnail_issues))
 
     issues = _quality_check_video(shorts_video_path, min_seconds=20, label="shorts video")
     if settings.enable_long_video:

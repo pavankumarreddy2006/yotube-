@@ -1,7 +1,3 @@
-"""
-Simple Telugu thumbnail generator using Pillow - fixed for Render and Windows consoles.
-"""
-
 from __future__ import annotations
 
 import os
@@ -9,17 +5,13 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 load_dotenv()
 
 OUTPUT_FILE = Path("thumbnail.jpg")
 IMAGE_SIZE = (1280, 720)
-BACKGROUND_COLOR = (15, 18, 32)
-BANNER_COLOR = (30, 30, 60)
-TEXT_COLOR = (255, 220, 70)
-SUBTEXT_COLOR = (255, 255, 255)
-DEFAULT_TEXT = "Telugu Sports Update"
+DEFAULT_TEXT = "షాక్ న్యూస్"
 
 
 def _safe_console(message: str) -> None:
@@ -32,52 +24,58 @@ def _safe_console(message: str) -> None:
 def _find_font_path(font_path: str) -> Path:
     candidates = [
         Path(font_path) if font_path else None,
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
         Path("/usr/share/fonts/truetype/noto/NotoSansTelugu-Regular.ttf"),
-        Path("/usr/share/fonts/truetype/freefont/FreeSans.ttf"),
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
         Path("C:/Windows/Fonts/Nirmala.ttf"),
         Path("C:/Windows/Fonts/Nirmala.ttc"),
         Path("C:/Windows/Fonts/Vrinda.ttf"),
     ]
-
     for path in candidates:
         if path and path.exists():
-            _safe_console(f"Using font: {path.name}")
             return path
-
     raise FileNotFoundError("No supported font file found")
 
 
 def load_font(font_path: str, size: int) -> ImageFont.FreeTypeFont:
     path = _find_font_path(font_path)
-    try:
-        return ImageFont.truetype(str(path), size=size)
-    except OSError as exc:
-        raise OSError(f"Unable to load font: {path.name}") from exc
+    return ImageFont.truetype(str(path), size=size)
 
 
 def wrap_text(draw: ImageDraw.Draw, text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
     words = text.split()
     lines: list[str] = []
-    current_line = ""
-
+    current = ""
     for word in words:
-        candidate = f"{current_line} {word}".strip()
+        candidate = f"{current} {word}".strip()
         bbox = draw.textbbox((0, 0), candidate, font=font)
-        width = bbox[2] - bbox[0]
-
-        if width <= max_width:
-            current_line = candidate
+        if bbox[2] - bbox[0] <= max_width:
+            current = candidate
         else:
-            if current_line:
-                lines.append(current_line)
-            current_line = word
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines or [text]
 
-    if current_line:
-        lines.append(current_line)
 
-    return lines
+def _gradient_background() -> Image.Image:
+    image = Image.new("RGB", IMAGE_SIZE, color=(18, 12, 12))
+    draw = ImageDraw.Draw(image)
+    for y in range(IMAGE_SIZE[1]):
+        ratio = y / max(IMAGE_SIZE[1] - 1, 1)
+        color = (
+            int(20 + 55 * ratio),
+            int(10 + 8 * ratio),
+            int(14 + 20 * ratio),
+        )
+        draw.line([(0, y), (IMAGE_SIZE[0], y)], fill=color)
+
+    glow = Image.new("RGBA", IMAGE_SIZE, (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    glow_draw.ellipse([(-180, -120), (680, 560)], fill=(255, 40, 40, 120))
+    glow_draw.ellipse([(760, 120), (1420, 760)], fill=(255, 220, 0, 95))
+    return Image.alpha_composite(image.convert("RGBA"), glow.filter(ImageFilter.GaussianBlur(70))).convert("RGB")
 
 
 def create_thumbnail(text: str, font_path: str, output_path: Path = OUTPUT_FILE) -> Path:
@@ -85,33 +83,34 @@ def create_thumbnail(text: str, font_path: str, output_path: Path = OUTPUT_FILE)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     safe_text = (text or DEFAULT_TEXT).strip()
-    font = load_font(font_path, size=72)
-    small_font = load_font(font_path, size=36)
-
-    image = Image.new("RGB", IMAGE_SIZE, color=BACKGROUND_COLOR)
+    image = _gradient_background()
     draw = ImageDraw.Draw(image)
+    title_font = load_font(font_path, size=108)
+    badge_font = load_font(font_path, size=42)
 
-    draw.rectangle([(0, 0), (IMAGE_SIZE[0], 120)], fill=BANNER_COLOR)
-    draw.text((40, 30), "TELUGU SPORTS UPDATE", font=small_font, fill=SUBTEXT_COLOR)
+    draw.rounded_rectangle([(46, 40), (420, 112)], radius=24, fill=(255, 255, 255))
+    draw.text((74, 56), "TRENDING UPDATE", font=badge_font, fill=(30, 30, 30))
 
-    max_text_width = IMAGE_SIZE[0] - 120
-    lines = wrap_text(draw, safe_text, font, max_text_width)
+    draw.polygon([(900, 0), (1280, 0), (1280, 430)], fill=(0, 0, 0))
+    draw.polygon([(0, 520), (320, 720), (0, 720)], fill=(0, 0, 0))
 
-    y = 180
-    for line in lines[:3]:
+    max_text_width = 760
+    lines = wrap_text(draw, safe_text, title_font, max_text_width)[:3]
+    y = 190
+    for line in lines:
         draw.text(
-            (60, y),
+            (72, y),
             line,
-            font=font,
-            fill=TEXT_COLOR,
-            stroke_width=3,
-            stroke_fill=(10, 10, 10),
+            font=title_font,
+            fill=(255, 240, 110),
+            stroke_width=6,
+            stroke_fill=(0, 0, 0),
         )
-        _, _, _, text_bottom = draw.textbbox((0, 0), line, font=font)
-        y += text_bottom + 15
+        bbox = draw.textbbox((0, 0), line, font=title_font)
+        y += (bbox[3] - bbox[1]) + 18
 
-    draw.rectangle([(0, IMAGE_SIZE[1] - 80), (IMAGE_SIZE[0], IMAGE_SIZE[1])], fill=(18, 18, 40))
-    draw.text((40, IMAGE_SIZE[1] - 60), "Daily Telugu sports thumbnail", font=small_font, fill=SUBTEXT_COLOR)
+    draw.rounded_rectangle([(62, 560), (690, 650)], radius=24, fill=(190, 0, 0))
+    draw.text((90, 582), "WATCH NOW", font=badge_font, fill=(255, 255, 255))
 
     image.save(str(output_path), quality=95)
     _safe_console("Thumbnail saved")
@@ -121,16 +120,14 @@ def create_thumbnail(text: str, font_path: str, output_path: Path = OUTPUT_FILE)
 def main() -> int:
     text = " ".join(sys.argv[1:]).strip() or os.getenv("THUMBNAIL_TEXT", DEFAULT_TEXT)
     font_path = os.getenv("THUMBNAIL_FONT_PATH")
-
     if not font_path:
         _safe_console("Error: THUMBNAIL_FONT_PATH is not set")
         return 1
-
     try:
         create_thumbnail(text, font_path)
         return 0
-    except Exception as e:
-        _safe_console(f"Error creating thumbnail: {e}")
+    except Exception as exc:
+        _safe_console(f"Error creating thumbnail: {exc}")
         return 1
 
 

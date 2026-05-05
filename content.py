@@ -48,7 +48,15 @@ class ContentPackage:
 
     @property
     def thumbnail_idea(self) -> str:
-        return "Bold sports thumbnail with strong contrast, player emotion, breaking-news urgency, and premium broadcast styling."
+        return (
+            "High-contrast sports news thumbnail with one main emotional subject, dark dramatic background, "
+            "large Telugu headline, yellow red and white palette, and strong mobile readability."
+        )
+
+    @property
+    def scene_lines(self) -> list[str]:
+        source = self.long_script if self.long_script.strip() else self.shorts_script
+        return _split_sentences(source)
 
     @property
     def shorts_script_telugu(self) -> str:
@@ -75,21 +83,34 @@ class ContentPackage:
         return self.highlights if self.language == "en" else []
 
 
+def _split_sentences(text: str) -> list[str]:
+    normalized = " ".join(part.strip() for part in text.splitlines() if part.strip())
+    if not normalized:
+        return []
+    parts = re.split(r"[.!?।]+", normalized)
+    return [part.strip() for part in parts if part.strip()]
+
+
 def fallback_content(language: str = "te") -> dict[str, str]:
     if language == "en":
         return {
             "title": "Sports Daily Update",
             "script": (
-                "The latest sports stories are moving fast today, from cricket to football and the global tournament circuit. "
-                "Here is your quick daily bulletin with the biggest highlights fans are watching right now."
+                "You will not believe how quickly today changed in the sports world. "
+                "Now let us look at the real story. "
+                "From cricket to football, the biggest talking points are creating serious buzz right now. "
+                "Stay till the end because the final update changes the full picture."
             ),
         }
 
     return {
-        "title": "Telugu Sports Daily Update",
+        "title": "ఈ రోజు స్పోర్ట్స్ అప్డేట్",
         "script": (
-            "ఈరోజు స్పోర్ట్స్ ప్రపంచంలో ఎన్నో కీలక అప్‌డేట్లు వచ్చాయి. క్రికెట్, ఫుట్‌బాల్, టెన్నిస్, ఒలింపిక్స్ "
-            "విషయాల్లో అభిమానులు ఆసక్తిగా గమనిస్తున్న ప్రధాన వార్తలను ఇప్పుడు మీకోసం తీసుకొచ్చాం."
+            "ఇది మీరు నమ్మలేని విషయం. "
+            "ఈ రోజు స్పోర్ట్స్ ప్రపంచంలో కొన్ని పెద్ద మార్పులు జరిగాయి. "
+            "ఇప్పుడు అసలు విషయం చూద్దాం. "
+            "క్రికెట్ నుంచి ఫుట్‌బాల్ వరకు అభిమానులు మాట్లాడుతున్న ముఖ్యమైన వార్తలను చాలా సింపుల్‌గా మీకు చెప్పబోతున్నాం. "
+            "చివరి వరకు చూడండి, చివర్లో ఉన్న అప్డేట్ మొత్తం కథను మార్చేస్తుంది."
         ),
     }
 
@@ -134,14 +155,15 @@ def generate_custom_script(
     title = f"{topic.strip()[:70] or 'Sports Topic'} Breakdown"
     if normalized_language == "en":
         script = (
-            f"Welcome back sports fans. Today we are diving into {topic}. "
-            "We will cover the key storyline, why it matters right now, the players or teams in focus, "
-            "and what to watch next as this story develops."
+            f"You will not believe this update about {topic}. "
+            "Now let us get into the real story. "
+            "I will explain what happened, why it matters, and what fans should watch next."
         )
     else:
         script = (
-            f"స్పోర్ట్స్ ఫ్యాన్స్ అందరికీ స్వాగతం. ఈరోజు {topic} గురించి క్లియర్‌గా మాట్లాడుకుందాం. "
-            "ఈ అంశం ఎందుకు ముఖ్యమో, ఇందులో ప్రధాన ఆటగాళ్లు లేదా జట్లు ఎవరో, తర్వాత ఏం జరుగుతుందో ఇప్పుడు చూద్దాం."
+            f"{topic} గురించి ఇది మీరు నమ్మలేని విషయం. "
+            "ఇప్పుడు అసలు విషయం చూద్దాం. "
+            "ఏం జరిగింది, అది ఎందుకు ముఖ్యమో, తరువాత ఏం జరగొచ్చో చాలా సింపుల్ తెలుగు లో చూసేద్దాం."
         )
 
     return {
@@ -149,9 +171,11 @@ def generate_custom_script(
         "script": script,
         "language": normalized_language,
         "language_label": language_label,
-        "video_prompt": f"Create a {'vertical' if include_video_prompt else 'studio'} sports explainer around {topic}."
-        if include_video_prompt
-        else "",
+        "video_prompt": (
+            f"Create a professional {'vertical' if include_video_prompt else 'wide'} Telugu sports explainer with matching visuals for {topic}."
+            if include_video_prompt
+            else ""
+        ),
     }
 
 
@@ -162,11 +186,9 @@ def normalize_language(language: str | None) -> str:
 
 def _system_prompt(language: str) -> str:
     language_label = SUPPORTED_LANGUAGES[language]
-    script_rule = f"Voiceover scripts and highlights must be fully in natural {language_label}."
+    script_rule = f"All narration, hooks, scene lines, and highlights must be fully in natural {language_label}."
     return f"""
-You are a professional YouTube sports newsroom producer.
-
-Create a DAILY sports bulletin package from multiple fresh sports highlights.
+You are a top-tier Telugu YouTube producer building a polished, high-retention sports video package.
 
 OUTPUT (STRICT JSON ONLY):
 {{
@@ -184,32 +206,39 @@ OUTPUT (STRICT JSON ONLY):
 
 RULES:
 1. {script_rule}
-2. Title, description, tags, and hashtags must always be in English.
-3. Long script:
-   - 650 to 950 words
-   - Cover 5 to 10 sports highlights
-   - Energetic sports-news anchor tone
-4. Shorts script:
-   - 30 to 60 seconds
-   - Mention 1 to 2 strongest highlights
-   - Fast, punchy, highly engaging
-5. highlights:
-   - 5 to 10 concise bullet lines in {language_label}
-6. visual_queries:
-   - 5 to 10 short English scene-image prompts
-   - one prompt per highlight
-7. Thumbnail text:
-   - Max 4 words
-   - Uppercase English
-   - Breaking-news feel
-8. Description:
-   - English summary of the bulletin
-   - Add hashtags at the end
-9. Tags:
-   - At least 10 relevant English tags
-10. Stay factual. Do not invent statistics or match scores.
-11. Use simple conversational Telugu with short, clear sentences.
-12. Output JSON only.
+2. Title, description, tags, and hashtags must be in English for YouTube SEO.
+3. Telugu wording must be simple, conversational, emotional, and easy for mass audiences.
+4. Start with a curiosity hook in the first 1 to 2 lines.
+5. Use short sentences and clean storytelling flow:
+   - hook
+   - main points
+   - closing summary with engagement prompt
+6. Avoid robotic, textbook, or overly formal Telugu.
+7. Long script:
+   - 450 to 750 words
+   - 6 to 10 compact paragraphs
+   - every paragraph should map well to visuals
+8. Shorts script:
+   - 60 to 90 words
+   - fast, punchy, emotionally engaging
+9. highlights:
+   - 6 to 10 concise Telugu scene lines
+   - each line should work as a subtitle/visual beat
+10. visual_queries:
+   - exactly one English visual prompt per highlight
+   - highly specific, literal, and visually matchable
+   - mention player/team/event/object when possible
+11. Thumbnail text:
+   - Telugu only
+   - 2 to 4 words
+   - high emotion, high curiosity, mobile readable
+12. Description:
+   - concise SEO-focused English summary
+   - include keywords and end with hashtags
+13. Tags:
+   - at least 12 relevant English tags
+14. Stay factual. Do not invent scores, quotes, or statistics.
+15. Output JSON only.
 """.strip()
 
 
@@ -258,47 +287,34 @@ TRENDING KEYWORDS:
         del attempt
         if isinstance(exc, openai.RateLimitError):
             return False
-        if isinstance(exc, openai.OpenAIError) and getattr(exc, "code", "") == "insufficient_quota":
-            return False
         return True
 
-    return retry(operation, operation_name="OpenAI content generation", should_retry=should_retry)
+    return retry(operation, operation_name="content generation", should_retry=should_retry)
 
 
 def _generate_custom_with_llm(topic: str, language: str, include_video_prompt: bool) -> dict[str, object]:
     client = OpenAI(api_key=settings.openai_api_key)
     language_label = SUPPORTED_LANGUAGES[language]
-    system_prompt = f"""
-You write engaging sports YouTube scripts.
-Return strict JSON with keys: title, script, video_prompt.
-Script must be in {language_label}. Title and video_prompt must be in English.
-Keep it factual and energetic.
-""".strip()
-    user_prompt = (
-        f"Create a sports explainer script about: {topic}. "
-        "Length: 180 to 260 words. Include a strong opener, the main update, context, and a closing line."
-    )
+    prompt = f"""
+Create a clean YouTube-ready sports explainer in {language_label} about: {topic}
 
-    response = client.responses.create(
-        model=settings.openai_model,
-        input=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    )
-    cleaned = (response.output_text or "").strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    payload = json.loads(cleaned)
-    return {
-        "title": _as_text(payload.get("title"), f"{topic[:70]} Breakdown"),
-        "script": _as_text(payload.get("script"), fallback_content(language)["script"]),
-        "language": language,
-        "language_label": language_label,
-        "video_prompt": _as_text(payload.get("video_prompt"), f"Create a sports explainer around {topic}.")
-        if include_video_prompt
-        else "",
-    }
+Rules:
+- Keep the script simple and natural.
+- Start with a strong hook.
+- Use short conversational sentences.
+- End with a summary and audience engagement line.
+- Avoid robotic tone.
+Return strict JSON with keys: title, script, language, language_label, video_prompt
+""".strip()
+    response = client.responses.create(model=settings.openai_model, input=prompt)
+    text = response.output_text.strip()
+    match = re.search(r"\{.*\}", text, flags=re.S)
+    payload = json.loads(match.group(0) if match else text)
+    payload["language"] = language
+    payload["language_label"] = language_label
+    if include_video_prompt and not payload.get("video_prompt"):
+        payload["video_prompt"] = f"Professional sports explainer visuals for {topic}"
+    return payload
 
 
 def _fallback_content(
@@ -308,73 +324,50 @@ def _fallback_content(
     *,
     language: str,
 ) -> ContentPackage:
-    chosen = highlights[: settings.max_daily_highlights] or [selected_topic]
-    lines = [_build_highlight_line(item, language) for item in chosen]
-    summaries = [f"- {item.title}: {item.summary}" for item in chosen[:8]]
-    fallback_script = fallback_content(language)["script"]
+    base = fallback_content(language)
+    scene_lines = []
+    visual_queries = []
+    for item in highlights[: settings.max_daily_highlights]:
+        scene_lines.append(item.title.strip())
+        visual_queries.append(f"professional sports news visual for {item.title}")
+    if not scene_lines:
+        scene_lines = _split_sentences(base["script"])
+    if not visual_queries:
+        visual_queries = ["professional sports breaking news studio"] * max(1, len(scene_lines))
 
-    if language == "en":
-        shorts_script = (
-            "Sports fans, here is your quick update. "
-            + " ".join(lines[:2])
-            + " Stay with us for more daily sports coverage."
-        ).strip()
-        long_script = " ".join(
-            [
-                "Welcome to your daily sports bulletin.",
-                fallback_script,
-                *lines,
-                "That wraps up the biggest stories across cricket, football, tennis, and the Olympic circuit.",
-                "Like, share, and subscribe for more sports updates every day.",
-            ]
-        )
-    else:
-        shorts_script = (
-            "స్పోర్ట్స్ ఫ్యాన్స్, ఇవాళ్టి టాప్ అప్‌డేట్స్ ఇవే. "
-            + " ".join(lines[:2])
-            + " మరిన్ని డైలీ స్పోర్ట్స్ అప్‌డేట్స్ కోసం మా ఛానల్‌ను ఫాలో అవ్వండి."
-        ).strip()
-        long_script = " ".join(
-            [
-                "స్పోర్ట్స్ అభిమానులారా, ఇవాళ్టి ముఖ్యమైన వార్తలను ఇప్పుడు విపులంగా చూద్దాం.",
-                fallback_script,
-                *lines,
-                "క్రికెట్ నుంచి ఫుట్‌బాల్ వరకు, టెన్నిస్ నుంచి ఒలింపిక్స్ వరకు ఈరోజు ప్రధాన కథనాలు ఇవే.",
-                "ఇలాంటివి మరిన్ని అప్‌డేట్స్ కోసం లైక్, షేర్, సబ్స్క్రైబ్ చేయండి.",
-            ]
-        )
-
-    hashtags = _normalize_hashtags(["#SportsNews", "#CricketNews", "#FootballNews", "#Tennis", "#Olympics"])
+    title = (
+        f"Big Sports Shock Today | Telugu Sports News"
+        if language == "te"
+        else "Big Sports Shock Today | Sports News Update"
+    )
+    hashtags = ["#TeluguNews", "#SportsNews", "#SportsUpdate"]
+    description = (
+        "A fast, professional Telugu sports update covering the biggest trending stories, key developments, and what fans should watch next.\n\n"
+        + "Keywords: telugu sports news, sports update, cricket news, football update\n\n"
+        + " ".join(hashtags)
+    )
     return ContentPackage(
-        title=_build_title(chosen),
-        description=(
-            "Today's biggest sports stories in one professional bulletin.\n\n"
-            + "\n".join(summaries)
-            + "\n\nsports news, cricket, football, highlights"
-            + "\nLike, Share, Subscribe for more daily sports updates."
-            + f"\n\n{' '.join(hashtags[:5])}"
-        ),
-        tags=_merge_tags(
-            [
-                "sports news",
-                "daily sports news",
-                "cricket news",
-                "football news",
-                "tennis news",
-                "olympics news",
-                "sports highlights",
-                "global sports update",
-                "sports shorts",
-                "youtube sports channel",
-            ],
-            _normalize_tags(trends),
-        )[:15],
-        thumbnail_text="SPORTS ALERT",
-        hook=lines[0] if lines else fallback_script,
-        shorts_script=shorts_script,
-        long_script=long_script,
-        highlights=lines[:10],
-        visual_queries=[item.title for item in chosen[:10]],
+        title=title,
+        description=description,
+        tags=[
+            "telugu sports news",
+            "sports update",
+            "cricket news telugu",
+            "football news telugu",
+            "latest sports news",
+            "breaking sports news",
+            "telugu youtube news",
+            "sports headlines",
+            "daily sports bulletin",
+            "trending sports topics",
+            *trends[:4],
+        ],
+        thumbnail_text="షాక్ న్యూస్",
+        hook=_split_sentences(base["script"])[0],
+        shorts_script=base["script"],
+        long_script=base["script"] + " " + " ".join(item.summary for item in highlights[:4] if item.summary),
+        highlights=scene_lines[:8],
+        visual_queries=visual_queries[:8],
         hashtags=hashtags,
         language=language,
         language_label=SUPPORTED_LANGUAGES[language],
@@ -382,221 +375,55 @@ def _fallback_content(
 
 
 def _minimal_content_package(language: str) -> ContentPackage:
-    data = fallback_content(language)
+    base = fallback_content(language)
     return ContentPackage(
-        title=data["title"],
-        description=f"{data['script']}\n\nsports news, cricket, football, highlights\nLike, Share, Subscribe.",
-        tags=[
-            "sports news",
-            "cricket news",
-            "football news",
-            "tennis news",
-            "olympics update",
-            "sports highlights",
-            "daily sports bulletin",
-            "global sports news",
-            "youtube sports update",
-            "breaking sports news",
-        ],
-        thumbnail_text="SPORTS UPDATE",
-        hook=data["script"],
-        shorts_script=data["script"],
-        long_script=data["script"],
-        highlights=[data["script"]],
-        visual_queries=["sports news studio headline"],
-        hashtags=["#SportsNews", "#SportsUpdate"],
+        title=base["title"],
+        description="Automated sports video update.",
+        tags=["sports update", "telugu sports"],
+        thumbnail_text="షాక్ అప్డేట్" if language == "te" else "SPORTS UPDATE",
+        hook=_split_sentences(base["script"])[0] if _split_sentences(base["script"]) else base["script"],
+        shorts_script=base["script"],
+        long_script=base["script"],
+        highlights=_split_sentences(base["script"])[:6],
+        visual_queries=["professional sports visual"] * max(1, len(_split_sentences(base["script"])[:6])),
+        hashtags=["#SportsNews"],
         language=language,
         language_label=SUPPORTED_LANGUAGES[language],
     )
 
 
-def _build_highlight_line(item: TopicCandidate, language: str) -> str:
-    if language == "en":
-        return f"{item.title}. {item.summary}".strip()
-    return _build_telugu_highlight_line(item)
-
-
-def _build_telugu_highlight_line(item: TopicCandidate) -> str:
-    subject = _topic_subject(item.title)
-    category = (item.category or "Sports").lower()
-    summary = (item.summary or "").strip()
-
-    if category == "cricket":
-        detail = "క్రికెట్ వర్గాల్లో ఈ అప్‌డేట్ ఇప్పుడు బాగా చర్చలో ఉంది."
-    elif category == "football":
-        detail = "ఫుట్‌బాల్ అభిమానులు ఈ పరిణామాన్ని దగ్గరగా గమనిస్తున్నారు."
-    elif category == "tennis":
-        detail = "టెన్నిస్ ప్రపంచంలో ఇది ముఖ్యమైన మార్పుగా కనిపిస్తోంది."
-    elif category == "olympics":
-        detail = "ఒలింపిక్స్ దిశగా ఇది గమనించాల్సిన ముఖ్యమైన అప్‌డేట్."
-    else:
-        detail = "స్పోర్ట్స్ ప్రపంచంలో ఇది ఇప్పుడు ప్రధాన చర్చగా మారింది."
-
-    summary_hint = _telugu_summary_hint(summary)
-    return f"{subject} గురించి కొత్త అప్‌డేట్ వచ్చింది. {detail} {summary_hint}".strip()
-
-
-def _topic_subject(title: str) -> str:
-    cleaned = re.sub(r"\s*-\s*[^-]+$", "", title or "").strip()
-    return cleaned or "ఈ వార్త"
-
-
-def _telugu_summary_hint(summary: str) -> str:
-    lowered = (summary or "").lower()
-    if any(term in lowered for term in ["injured", "injury", "injured list", "rehab", "shoulder"]):
-        return "ఫిట్‌నెస్ మరియు జట్టు ఎంపికలపై దీని ప్రభావం ఉండొచ్చు."
-    if any(term in lowered for term in ["won", "beat", "victory", "game 7", "comeback"]):
-        return "ఫలితం తర్వాత అభిమానుల్లో చర్చ మరింత పెరిగింది."
-    if any(term in lowered for term in ["penalty", "incident", "controversy"]):
-        return "ఈ నిర్ణయంపై అభిమానులు మరియు నిపుణులు చర్చిస్తున్నారు."
-    if any(term in lowered for term in ["transfer", "trade", "optioned"]):
-        return "జట్టు భవిష్యత్ ప్లాన్లపై ఇప్పుడు ఆసక్తి పెరిగింది."
-    if any(term in lowered for term in ["media", "criticized", "criticism"]):
-        return "జట్టు నిర్వహణపై కూడా ఇప్పుడు ప్రశ్నలు వస్తున్నాయి."
-    return "ఇంకా పూర్తి వివరాల కోసం అభిమానులు తదుపరి అప్‌డేట్ కోసం ఎదురుచూస్తున్నారు."
-
-
-def _build_title(items: list[TopicCandidate]) -> str:
-    if not items:
-        return "Top Sports News Today | Cricket, Football, Tennis & Olympics"
-    primary = items[0].title.split("|")[0].strip()
-    return f"Top Sports News Today: {primary[:45]} & More"
-
-
 def _parse_response_payload(raw_text: str, language: str) -> dict[str, object]:
-    cleaned = (raw_text or "").strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    payload = _extract_json_object(raw_text)
+    missing = EXPECTED_KEYS - set(payload)
+    if missing:
+        raise ValueError(f"Missing keys in content payload: {sorted(missing)}")
 
-    payload = json.loads(cleaned)
-    if not isinstance(payload, dict):
-        raise ValueError("Model response was not a JSON object")
-
-    normalized = {key: payload.get(key) for key in EXPECTED_KEYS}
-    hashtags = _normalize_hashtags(normalized.get("hashtags"))
-    description = _ensure_keywords_and_cta(_as_text(normalized.get("description"), fallback_content(language)["script"]))
-    if hashtags:
-        description = f"{description}\n\n{' '.join(hashtags[:6])}"
+    visual_queries = [str(item).strip() for item in payload.get("visual_queries", []) if str(item).strip()]
+    highlights = [str(item).strip() for item in payload.get("highlights", []) if str(item).strip()]
+    if not visual_queries:
+        visual_queries = ["professional sports visual"] * max(1, len(highlights))
+    if len(visual_queries) < len(highlights):
+        visual_queries.extend([visual_queries[-1]] * (len(highlights) - len(visual_queries)))
 
     return {
-        "title": _as_text(normalized.get("title"), "Sports Update"),
-        "description": description,
-        "tags": _normalize_tags(normalized.get("tags")),
-        "thumbnail_text": _normalize_thumbnail_text(normalized.get("thumbnail_text")),
-        "hook": _as_text(normalized.get("hook"), "Top sports updates are here."),
-        "shorts_script": _as_text(normalized.get("shorts_script"), fallback_content(language)["script"]),
-        "long_script": _as_text(normalized.get("long_script"), fallback_content(language)["script"]),
-        "highlights": _normalize_highlights(normalized.get("highlights")),
-        "visual_queries": _normalize_visual_queries(normalized.get("visual_queries")),
-        "hashtags": hashtags,
+        "title": str(payload["title"]).strip(),
+        "description": str(payload["description"]).strip(),
+        "tags": [str(item).strip() for item in payload.get("tags", []) if str(item).strip()][:20],
+        "thumbnail_text": str(payload["thumbnail_text"]).strip(),
+        "hook": str(payload["hook"]).strip(),
+        "shorts_script": str(payload["shorts_script"]).strip(),
+        "long_script": str(payload["long_script"]).strip(),
+        "highlights": highlights[:10],
+        "visual_queries": visual_queries[:10],
+        "hashtags": [str(item).strip() for item in payload.get("hashtags", []) if str(item).strip()][:8],
         "language": language,
         "language_label": SUPPORTED_LANGUAGES[language],
     }
 
 
-def _as_text(value: object, default: str) -> str:
-    text = str(value).strip() if value is not None else ""
-    return text or default
-
-
-def _normalize_tags(value: object) -> list[str]:
-    if isinstance(value, list):
-        raw_tags = [str(item).strip() for item in value if str(item).strip()]
-    elif isinstance(value, str):
-        raw_tags = [part.strip() for part in value.split(",") if part.strip()]
-    else:
-        raw_tags = []
-
-    fallback_tags = [
-        "sports news",
-        "daily sports news",
-        "cricket news",
-        "football news",
-        "tennis news",
-        "olympics news",
-        "sports highlights",
-        "world sports update",
-        "sports shorts",
-        "breaking sports news",
-    ]
-    return _merge_tags(raw_tags, fallback_tags)[:15]
-
-
-def _merge_tags(*groups: list[str]) -> list[str]:
-    merged: list[str] = []
-    seen: set[str] = set()
-    for group in groups:
-        for item in group:
-            text = str(item).strip()
-            if not text:
-                continue
-            lowered = text.lower()
-            if lowered in seen:
-                continue
-            seen.add(lowered)
-            merged.append(text)
-    return merged
-
-
-def _normalize_thumbnail_text(value: object) -> str:
-    text = _as_text(value, "BIG SPORTS ALERT")
-    return " ".join(text.upper().split()[:4]).strip() or "BIG SPORTS ALERT"
-
-
-def _normalize_highlights(value: object) -> list[str]:
-    if isinstance(value, list):
-        items = [str(item).strip() for item in value if str(item).strip()]
-    elif isinstance(value, str):
-        items = [line.strip("- ").strip() for line in value.splitlines() if line.strip()]
-    else:
-        items = []
-    return items[:10]
-
-
-def _normalize_hashtags(value: object) -> list[str]:
-    if isinstance(value, list):
-        items = [str(item).strip() for item in value if str(item).strip()]
-    elif isinstance(value, str):
-        items = [part.strip() for part in value.replace(",", " ").split() if part.strip()]
-    else:
-        items = []
-
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for item in items:
-        tag = item if item.startswith("#") else f"#{item.replace(' ', '')}"
-        lowered = tag.lower()
-        if lowered in seen:
-            continue
-        seen.add(lowered)
-        normalized.append(tag)
-    return normalized[:8]
-
-
-def _normalize_visual_queries(value: object) -> list[str]:
-    if isinstance(value, list):
-        items = [str(item).strip() for item in value if str(item).strip()]
-    elif isinstance(value, str):
-        items = [line.strip("- ").strip() for line in value.splitlines() if line.strip()]
-    else:
-        items = []
-
-    fallback = [
-        "sports newsroom breaking alert",
-        "cricket stadium crowd reaction",
-        "football player press conference",
-        "tennis player celebration shot",
-        "olympic athlete action moment",
-    ]
-    return (items or fallback)[:10]
-
-
-def _ensure_keywords_and_cta(description: str) -> str:
-    required_line = "sports news, cricket, football, highlights"
-    cta_line = "Like, Share, Subscribe"
-    updated = description.strip()
-    if required_line not in updated:
-        updated = f"{updated}\n\n{required_line}".strip()
-    if cta_line.lower() not in updated.lower():
-        updated = f"{updated}\n{cta_line}".strip()
-    return updated
+def _extract_json_object(raw_text: str) -> dict[str, object]:
+    text = raw_text.strip()
+    match = re.search(r"\{.*\}", text, flags=re.S)
+    if match:
+        text = match.group(0)
+    return json.loads(text)

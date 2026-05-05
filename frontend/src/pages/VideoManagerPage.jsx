@@ -10,7 +10,7 @@ export default function VideoManagerPage({ dashboard }) {
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
       <SectionCard
         title="Video Preview"
-        description="Frontend-served preview artifacts from the latest completed run."
+        description="Frontend-served preview artifacts from the latest completed run, optimized for quick review."
         actions={
           <button type="button" onClick={runNow} disabled={Boolean(status?.running) || actionState.run} className="ghost-button">
             <RefreshCcw className={`h-4 w-4 ${actionState.run ? "animate-spin" : ""}`} />
@@ -70,7 +70,7 @@ export default function VideoManagerPage({ dashboard }) {
 
       <SectionCard
         title="Publishing Status"
-        description="Tracks upload URLs and current pipeline output state."
+        description="Tracks upload URLs, current stage, and the latest runtime output state."
         actions={
           <button type="button" onClick={runNow} disabled={Boolean(status?.running) || actionState.run} className="action-gradient">
             <Rocket className="h-4 w-4" />

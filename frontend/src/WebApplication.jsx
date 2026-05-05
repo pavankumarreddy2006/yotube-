@@ -1,6 +1,7 @@
 import { Suspense, lazy, useMemo } from "react";
 import {
   Activity,
+  FileImage,
   FileText,
   LayoutDashboard,
   Newspaper,
@@ -17,16 +18,18 @@ const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const LiveNewsPage = lazy(() => import("./pages/LiveNewsPage"));
 const ScriptGeneratorPage = lazy(() => import("./pages/ScriptGeneratorPage"));
 const VideoManagerPage = lazy(() => import("./pages/VideoManagerPage"));
+const AssetsPage = lazy(() => import("./pages/AssetsPage"));
 const LogsPage = lazy(() => import("./pages/LogsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 const routes = [
-  { key: "dashboard", label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, component: DashboardPage },
-  { key: "news", label: "Live News", path: "/dashboard/news", icon: Newspaper, component: LiveNewsPage },
-  { key: "scripts", label: "Script Generator", path: "/dashboard/scripts", icon: FileText, component: ScriptGeneratorPage },
-  { key: "videos", label: "Video Manager", path: "/dashboard/videos", icon: PlayCircle, component: VideoManagerPage },
-  { key: "logs", label: "Logs", path: "/dashboard/logs", icon: TerminalSquare, component: LogsPage },
-  { key: "settings", label: "Settings", path: "/dashboard/settings", icon: Settings, component: Activity },
+  { key: "dashboard", label: "Overview", shortLabel: "Home", path: "/dashboard", icon: LayoutDashboard, component: DashboardPage, section: "overview" },
+  { key: "news", label: "News", shortLabel: "News", path: "/dashboard/news", icon: Newspaper, component: LiveNewsPage, section: "content" },
+  { key: "scripts", label: "Scripts", shortLabel: "Scripts", path: "/dashboard/scripts", icon: FileText, component: ScriptGeneratorPage, section: "content" },
+  { key: "videos", label: "Videos", shortLabel: "Videos", path: "/dashboard/videos", icon: PlayCircle, component: VideoManagerPage, section: "media" },
+  { key: "assets", label: "Assets", shortLabel: "Assets", path: "/dashboard/assets", icon: FileImage, component: AssetsPage, section: "media" },
+  { key: "logs", label: "Logs", shortLabel: "Logs", path: "/dashboard/logs", icon: TerminalSquare, component: LogsPage, section: "system" },
+  { key: "settings", label: "Settings", shortLabel: "Settings", path: "/dashboard/settings", icon: Settings, component: Activity, section: "system" },
 ];
 
 const resolvedRoutes = routes.map((route) => ({
@@ -54,6 +57,8 @@ export default function WebApplication() {
       language={dashboard.language}
       setLanguage={dashboard.setLanguage}
       loading={dashboard.bootstrapLoading}
+      error={dashboard.error}
+      onRetry={dashboard.refreshStatus}
     >
       <Suspense fallback={<PageSkeleton />}>
         <CurrentPage

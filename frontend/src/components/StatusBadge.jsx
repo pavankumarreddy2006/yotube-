@@ -2,11 +2,14 @@ export function StatusBadge({ status }) {
   const failed = Boolean(status?.failed);
   const running = Boolean(status?.running);
   const completed = status?.status === "completed";
-  const label = failed ? "Failed" : running ? "Running" : completed ? "Completed" : "Idle";
+  const label = failed ? "Error" : running ? "Live" : completed ? "Completed" : "Idle";
 
   return (
-    <div className="glass-pill">
-      <span className="text-slate-400">Status</span>
+    <div className="glass-pill justify-between min-w-[150px]">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Status</p>
+        <p className="mt-1 text-sm text-white">{label}</p>
+      </div>
       <span
         className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${
           failed

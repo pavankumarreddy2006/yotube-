@@ -8,7 +8,7 @@ export default function LogsPage({ dashboard }) {
   return (
     <SectionCard
       title="Logs"
-      description="Real-time operational logs from the backend pipeline."
+      description="Real-time operational logs from the backend pipeline with live refresh controls."
       actions={
         <button type="button" onClick={refreshLogs} disabled={refreshState.logs} className="ghost-button">
           <RotateCw className={`h-4 w-4 ${refreshState.logs ? "animate-spin" : ""}`} />

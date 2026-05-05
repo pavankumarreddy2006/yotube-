@@ -173,6 +173,7 @@ export function useDashboardData() {
           const result = await askSportsAi({ ...payload, language: state.language });
           setPartial((prev) => ({ ...prev, askAiResult: result }));
         }),
+      refreshStatus: () => loadStatusAndLogs({ background: true }),
       refreshNews: () => loadNews({ background: true }),
       refreshLogs,
     };

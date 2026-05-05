@@ -10,8 +10,8 @@ export default {
         panel: "0 24px 60px rgba(0, 0, 0, 0.28)",
       },
       fontFamily: {
-        sans: ["Outfit", "sans-serif"],
-        display: ["'Space Grotesk'", "sans-serif"],
+        sans: ["Inter", "sans-serif"],
+        display: ["Sora", "sans-serif"],
       }
     }
   },

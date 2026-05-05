@@ -34,7 +34,9 @@ export default function ScriptGeneratorPage({ dashboard }) {
           className="input-surface mt-3 min-h-[180px] w-full resize-none"
           placeholder="Enter a sports topic, match, player, transfer, or tournament story."
         />
-        <p className="mt-3 text-sm text-slate-400">Selected language: {language === "en" ? "English" : "Telugu"}</p>
+        <div className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">
+          Selected language: <span className="font-medium text-white">{language === "en" ? "English" : "Telugu"}</span>
+        </div>
         {error ? <p className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</p> : null}
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <button type="button" onClick={() => submit(false)} disabled={actionState.askAi} className="action-gradient">
