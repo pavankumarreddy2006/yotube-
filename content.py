@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 
 import openai
@@ -25,6 +26,7 @@ EXPECTED_KEYS = {
     "shorts_script",
     "long_script",
     "highlights",
+    "visual_queries",
     "hashtags",
 }
 
@@ -39,6 +41,7 @@ class ContentPackage:
     shorts_script: str
     long_script: str
     highlights: list[str] = field(default_factory=list)
+    visual_queries: list[str] = field(default_factory=list)
     hashtags: list[str] = field(default_factory=list)
     language: str = "te"
     language_label: str = "Telugu"
@@ -175,6 +178,7 @@ OUTPUT (STRICT JSON ONLY):
   "shorts_script": "",
   "long_script": "",
   "highlights": [],
+  "visual_queries": [],
   "hashtags": []
 }}
 
@@ -191,17 +195,21 @@ RULES:
    - Fast, punchy, highly engaging
 5. highlights:
    - 5 to 10 concise bullet lines in {language_label}
-6. Thumbnail text:
+6. visual_queries:
+   - 5 to 10 short English scene-image prompts
+   - one prompt per highlight
+7. Thumbnail text:
    - Max 4 words
    - Uppercase English
    - Breaking-news feel
-7. Description:
+8. Description:
    - English summary of the bulletin
    - Add hashtags at the end
-8. Tags:
+9. Tags:
    - At least 10 relevant English tags
-9. Stay factual. Do not invent statistics or match scores.
-10. Output JSON only.
+10. Stay factual. Do not invent statistics or match scores.
+11. Use simple conversational Telugu with short, clear sentences.
+12. Output JSON only.
 """.strip()
 
 
@@ -366,6 +374,7 @@ def _fallback_content(
         shorts_script=shorts_script,
         long_script=long_script,
         highlights=lines[:10],
+        visual_queries=[item.title for item in chosen[:10]],
         hashtags=hashtags,
         language=language,
         language_label=SUPPORTED_LANGUAGES[language],
@@ -394,6 +403,7 @@ def _minimal_content_package(language: str) -> ContentPackage:
         shorts_script=data["script"],
         long_script=data["script"],
         highlights=[data["script"]],
+        visual_queries=["sports news studio headline"],
         hashtags=["#SportsNews", "#SportsUpdate"],
         language=language,
         language_label=SUPPORTED_LANGUAGES[language],
@@ -403,7 +413,47 @@ def _minimal_content_package(language: str) -> ContentPackage:
 def _build_highlight_line(item: TopicCandidate, language: str) -> str:
     if language == "en":
         return f"{item.title}. {item.summary}".strip()
-    return f"{item.title} ప్రధాన చర్చగా మారింది. {item.summary}".strip()
+    return _build_telugu_highlight_line(item)
+
+
+def _build_telugu_highlight_line(item: TopicCandidate) -> str:
+    subject = _topic_subject(item.title)
+    category = (item.category or "Sports").lower()
+    summary = (item.summary or "").strip()
+
+    if category == "cricket":
+        detail = "క్రికెట్ వర్గాల్లో ఈ అప్‌డేట్ ఇప్పుడు బాగా చర్చలో ఉంది."
+    elif category == "football":
+        detail = "ఫుట్‌బాల్ అభిమానులు ఈ పరిణామాన్ని దగ్గరగా గమనిస్తున్నారు."
+    elif category == "tennis":
+        detail = "టెన్నిస్ ప్రపంచంలో ఇది ముఖ్యమైన మార్పుగా కనిపిస్తోంది."
+    elif category == "olympics":
+        detail = "ఒలింపిక్స్ దిశగా ఇది గమనించాల్సిన ముఖ్యమైన అప్‌డేట్."
+    else:
+        detail = "స్పోర్ట్స్ ప్రపంచంలో ఇది ఇప్పుడు ప్రధాన చర్చగా మారింది."
+
+    summary_hint = _telugu_summary_hint(summary)
+    return f"{subject} గురించి కొత్త అప్‌డేట్ వచ్చింది. {detail} {summary_hint}".strip()
+
+
+def _topic_subject(title: str) -> str:
+    cleaned = re.sub(r"\s*-\s*[^-]+$", "", title or "").strip()
+    return cleaned or "ఈ వార్త"
+
+
+def _telugu_summary_hint(summary: str) -> str:
+    lowered = (summary or "").lower()
+    if any(term in lowered for term in ["injured", "injury", "injured list", "rehab", "shoulder"]):
+        return "ఫిట్‌నెస్ మరియు జట్టు ఎంపికలపై దీని ప్రభావం ఉండొచ్చు."
+    if any(term in lowered for term in ["won", "beat", "victory", "game 7", "comeback"]):
+        return "ఫలితం తర్వాత అభిమానుల్లో చర్చ మరింత పెరిగింది."
+    if any(term in lowered for term in ["penalty", "incident", "controversy"]):
+        return "ఈ నిర్ణయంపై అభిమానులు మరియు నిపుణులు చర్చిస్తున్నారు."
+    if any(term in lowered for term in ["transfer", "trade", "optioned"]):
+        return "జట్టు భవిష్యత్ ప్లాన్లపై ఇప్పుడు ఆసక్తి పెరిగింది."
+    if any(term in lowered for term in ["media", "criticized", "criticism"]):
+        return "జట్టు నిర్వహణపై కూడా ఇప్పుడు ప్రశ్నలు వస్తున్నాయి."
+    return "ఇంకా పూర్తి వివరాల కోసం అభిమానులు తదుపరి అప్‌డేట్ కోసం ఎదురుచూస్తున్నారు."
 
 
 def _build_title(items: list[TopicCandidate]) -> str:
@@ -437,6 +487,7 @@ def _parse_response_payload(raw_text: str, language: str) -> dict[str, object]:
         "shorts_script": _as_text(normalized.get("shorts_script"), fallback_content(language)["script"]),
         "long_script": _as_text(normalized.get("long_script"), fallback_content(language)["script"]),
         "highlights": _normalize_highlights(normalized.get("highlights")),
+        "visual_queries": _normalize_visual_queries(normalized.get("visual_queries")),
         "hashtags": hashtags,
         "language": language,
         "language_label": SUPPORTED_LANGUAGES[language],
@@ -520,6 +571,24 @@ def _normalize_hashtags(value: object) -> list[str]:
         seen.add(lowered)
         normalized.append(tag)
     return normalized[:8]
+
+
+def _normalize_visual_queries(value: object) -> list[str]:
+    if isinstance(value, list):
+        items = [str(item).strip() for item in value if str(item).strip()]
+    elif isinstance(value, str):
+        items = [line.strip("- ").strip() for line in value.splitlines() if line.strip()]
+    else:
+        items = []
+
+    fallback = [
+        "sports newsroom breaking alert",
+        "cricket stadium crowd reaction",
+        "football player press conference",
+        "tennis player celebration shot",
+        "olympic athlete action moment",
+    ]
+    return (items or fallback)[:10]
 
 
 def _ensure_keywords_and_cta(description: str) -> str:

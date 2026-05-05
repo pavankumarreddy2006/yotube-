@@ -1,4 +1,4 @@
-import { Bell, Bot, ChevronDown, LoaderCircle, Menu, X } from "lucide-react";
+import { Bell, Bot, ChevronDown, LoaderCircle, Menu, Sparkles, X } from "lucide-react";
 import { useState } from "react";
 import { StatusBadge } from "./StatusBadge";
 
@@ -55,6 +55,11 @@ export function AppShell({
                 <p className="mt-2 text-sm text-slate-400">
                   Monitor news intake, generate scripts, and keep the video pipeline moving without blocking the UI.
                 </p>
+                <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-300">
+                  <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1">Local-first workflow</span>
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1">Telugu narration</span>
+                  <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1">Daily automation</span>
+                </div>
               </div>
             </div>
 
@@ -76,6 +81,10 @@ export function AppShell({
               <div className="glass-pill gap-2">
                 {loading ? <LoaderCircle className="h-4 w-4 animate-spin text-cyan-300" /> : <Bell className="h-4 w-4 text-cyan-300" />}
                 <span>{loading ? "Syncing" : "Live"}</span>
+              </div>
+              <div className="glass-pill hidden 2xl:inline-flex gap-2">
+                <Sparkles className="h-4 w-4 text-emerald-300" />
+                <span>Creator Mode</span>
               </div>
             </div>
           </header>
@@ -108,7 +117,8 @@ function Sidebar({ navigation, currentPath, onNavigate, status, mobile = false }
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Studio</p>
-          <h2 className="text-xl font-semibold text-white">Sports SaaS</h2>
+          <h2 className="text-xl font-semibold text-white">Sports Studio</h2>
+          <p className="mt-1 text-xs text-slate-500">Run, review, improve</p>
         </div>
       </div>
 
@@ -141,6 +151,11 @@ function Sidebar({ navigation, currentPath, onNavigate, status, mobile = false }
           <SidebarMetric label="Stage" value={status?.progressLabel || "Waiting"} />
           <SidebarMetric label="Topic" value={status?.selectedTopic || "No topic selected"} />
         </div>
+      </div>
+
+      <div className="mt-4 rounded-[24px] border border-cyan-400/10 bg-cyan-500/[0.05] p-4 text-sm text-slate-300">
+        <p className="font-medium text-white">Quick flow</p>
+        <p className="mt-2 leading-6">Fetch news, generate Telugu script, build visuals, review previews, then upload only when the output looks right.</p>
       </div>
     </div>
   );

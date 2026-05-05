@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -18,18 +19,57 @@ logger = get_logger(__name__)
 YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 
-def _extract_google_error(exc: Exception) -> str:
+class PermanentUploadError(RuntimeError):
+    """Raised when the YouTube API reports a non-retryable upload failure."""
+
+
+def _extract_google_error(exc: Exception) -> tuple[str, int | None, list[str]]:
     if isinstance(exc, HttpError):
         status = getattr(exc.resp, "status", "unknown")
+        reasons: list[str] = []
         try:
             payload = exc.error_details if getattr(exc, "error_details", None) else []
         except Exception:
             payload = []
+        if not payload:
+            try:
+                content = json.loads(exc.content.decode("utf-8"))
+                payload = content.get("error", {}).get("errors", [])
+            except Exception:
+                payload = []
         if payload:
-            detail = "; ".join(str(item.get("reason") or item.get("message") or item) for item in payload)
-            return f"YouTube API error {status}: {detail}"
-        return f"YouTube API error {status}: {exc}"
-    return str(exc)
+            reasons = [str(item.get("reason") or item.get("message") or item) for item in payload]
+            detail = "; ".join(reasons)
+            return f"YouTube API error {status}: {detail}", int(status), reasons
+        return f"YouTube API error {status}: {exc}", int(status), reasons
+    return str(exc), None, []
+
+
+def _format_upload_guidance(status: int | None, reasons: list[str]) -> str:
+    normalized = {reason.lower() for reason in reasons}
+    if status == 403:
+        if "forbidden" in normalized:
+            return (
+                " Upload permission was denied by YouTube. Check that the signed-in Google account owns or has "
+                "upload access to a YouTube channel, the YouTube Data API v3 is enabled for this OAuth project, "
+                "and if the OAuth consent screen is in testing mode, that this Google account is added as a test user."
+            )
+        if "youtubeSignupRequired".lower() in normalized:
+            return " The signed-in Google account does not have a YouTube channel yet. Create a channel and retry."
+        if "quotaExceeded".lower() in normalized:
+            return " The YouTube Data API quota for this Google Cloud project is exhausted. Retry after quota resets."
+    if status == 401:
+        return " The refresh token or OAuth client is invalid for upload. Generate a new refresh token and retry."
+    return ""
+
+
+def _should_retry_upload(exc: Exception, _attempt: int) -> bool:
+    if isinstance(exc, PermanentUploadError):
+        return False
+    if isinstance(exc, HttpError):
+        status = int(getattr(exc.resp, "status", 0) or 0)
+        return status >= 500 or status == 429
+    return True
 
 # Upload a finished video to YouTube using the refresh token stored in .env.
 # The function refreshes the OAuth access token automatically and submits the
@@ -71,7 +111,8 @@ def upload_video(
         credentials.refresh(Request())
         youtube = build("youtube", "v3", credentials=credentials)
     except Exception as exc:
-        message = _extract_google_error(exc)
+        message, status, reasons = _extract_google_error(exc)
+        message = f"{message}{_format_upload_guidance(status, reasons)}"
         logger.error("YouTube authentication failed: %s", message)
         raise RuntimeError(message) from exc
 
@@ -100,8 +141,15 @@ def upload_video(
             youtube.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(str(thumbnail_path))).execute()
             return f"https://www.youtube.com/watch?v={video_id}"
         except Exception as exc:
-            message = _extract_google_error(exc)
+            message, status, reasons = _extract_google_error(exc)
+            message = f"{message}{_format_upload_guidance(status, reasons)}"
             logger.error("YouTube upload request failed: %s", message)
+            if status is not None and status < 500 and status != 429:
+                raise PermanentUploadError(message) from exc
             raise RuntimeError(message) from exc
 
-    return retry(operation, operation_name=f"upload -> {video_path}")
+    return retry(
+        operation,
+        operation_name=f"upload -> {video_path}",
+        should_retry=_should_retry_upload,
+    )

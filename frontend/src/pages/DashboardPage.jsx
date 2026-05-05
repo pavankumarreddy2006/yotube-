@@ -1,4 +1,4 @@
-import { LoaderCircle, Rocket, Sparkles, Video } from "lucide-react";
+import { ArrowRight, CheckCircle2, LoaderCircle, Rocket, Sparkles, Video, Wand2 } from "lucide-react";
 import { NewsList } from "../components/NewsList";
 import { LogsPanel } from "../components/LogsPanel";
 import { SectionCard } from "../components/SectionCard";
@@ -74,11 +74,45 @@ export default function DashboardPage({ dashboard, onNavigate }) {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((item) => (
-          <div key={item.key} className="glass-card p-5">
+          <div key={item.key} className="metric-tile">
             <p className="text-sm text-slate-400">{item.label}</p>
             <p className="mt-3 text-3xl font-semibold text-white">{metrics[item.key]}</p>
           </div>
         ))}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="feature-card">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-cyan-500/12 p-3">
+              <Wand2 className="h-5 w-5 text-cyan-200" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-white">Simple Daily Workflow</h3>
+              <p className="mt-1 text-sm text-slate-400">Built to be easy even when you are checking videos quickly.</p>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <WorkflowStep title="1. Run" text="Start the pipeline and let the system fetch news, script, voice, and previews." />
+            <WorkflowStep title="2. Review" text="Check the preview page, logs, and thumbnail before publishing." />
+            <WorkflowStep title="3. Improve" text="Use each run to refine hooks, visuals, and Shorts structure for tomorrow." />
+          </div>
+        </div>
+
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.24em] text-slate-400">Quick Actions</p>
+              <h3 className="mt-2 text-xl font-semibold text-white">Most-used controls</h3>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <ActionTile label="Start full run" description="Generate Telugu assets end to end." onClick={runNow} disabled={Boolean(status?.running) || actionState.run} />
+            <ActionTile label="Open scripts" description="Review and refine generated narration." onClick={() => onNavigate("/dashboard/scripts")} />
+            <ActionTile label="Check videos" description="Preview Shorts and full-length exports." onClick={() => onNavigate("/dashboard/videos")} />
+            <ActionTile label="Live news" description="Inspect what stories are feeding the pipeline." onClick={() => onNavigate("/dashboard/news")} />
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -143,5 +177,33 @@ function Kpi({ label, value }) {
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-2 text-sm text-white">{value}</p>
     </div>
+  );
+}
+
+function WorkflowStep({ title, text }) {
+  return (
+    <div className="soft-panel">
+      <p className="text-sm font-semibold text-white">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-400">{text}</p>
+    </div>
+  );
+}
+
+function ActionTile({ label, description, onClick, disabled = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="soft-panel text-left transition hover:border-cyan-400/20 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-white">{label}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
+        </div>
+        {disabled ? <CheckCircle2 className="h-5 w-5 text-slate-500" /> : <ArrowRight className="h-5 w-5 text-cyan-300" />}
+      </div>
+    </button>
   );
 }

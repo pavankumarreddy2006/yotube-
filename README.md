@@ -84,6 +84,12 @@ npm install
 npm run dev
 ```
 
+Both together:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-local.ps1
+```
+
 ## API routes
 
 - `GET /health`

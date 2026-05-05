@@ -53,6 +53,7 @@ def _fallback_package(language: str) -> ContentPackage:
         shorts_script=data["script"],
         long_script=data["script"],
         highlights=[data["script"]],
+        visual_queries=["sports news studio headline"],
         hashtags=["#SportsNews", "#SportsUpdate"],
         language=language,
         language_label=label,
@@ -100,6 +101,9 @@ def _cleanup_old_artifacts(*, keep_work_dir: str | Path | None = None) -> None:
     if not OUTPUT_DIR.exists():
         return
 
+    now = datetime.now().timestamp()
+    expiry_seconds = 24 * 60 * 60
+
     keep_count = max(1, settings.retain_run_artifacts)
     keep_paths: set[Path] = set()
     if keep_work_dir:
@@ -115,6 +119,15 @@ def _cleanup_old_artifacts(*, keep_work_dir: str | Path | None = None) -> None:
         key=lambda item: item.stat().st_mtime,
         reverse=True,
     )
+    expired_paths: set[Path] = set()
+    for item in run_dirs:
+        try:
+            age_seconds = now - item.stat().st_mtime
+        except Exception:
+            continue
+        if age_seconds >= expiry_seconds:
+            expired_paths.add(item.resolve())
+
     for item in run_dirs[:keep_count]:
         keep_paths.add(item.resolve())
 
@@ -122,6 +135,9 @@ def _cleanup_old_artifacts(*, keep_work_dir: str | Path | None = None) -> None:
     for item in OUTPUT_DIR.iterdir():
         resolved = item.resolve()
         if item.is_dir():
+            if resolved in expired_paths:
+                _safe_remove_path(item)
+                continue
             if resolved in keep_paths:
                 continue
             _safe_remove_path(item)
@@ -217,6 +233,7 @@ def _load_latest_content_package() -> ContentPackage:
         shorts_script=content_data.get("shorts_script", ""),
         long_script=content_data.get("long_script", ""),
         highlights=content_data.get("highlights", []) or [],
+        visual_queries=content_data.get("visual_queries", []) or [],
         hashtags=content_data.get("hashtags", []) or [],
         language=language,
         language_label=content_data.get("language_label", "Telugu" if language == "te" else "English"),
@@ -252,6 +269,15 @@ def _write_subtitles(script: str, output_path: Path) -> str | None:
         cursor += 4
     output_path.write_text("\n".join(lines), encoding="utf-8")
     return str(output_path)
+
+
+def _scene_image_paths(highlights: list[TopicCandidate]) -> list[str]:
+    paths: list[str] = []
+    for item in highlights:
+        image_url = getattr(item, "image_url", "") or ""
+        if image_url:
+            paths.append(image_url)
+    return paths
 
 
 def _validate_video_environment() -> None:
@@ -315,6 +341,10 @@ def create_video(
     image_path: str | None,
     output_path: Path,
     vertical: bool,
+    script: str,
+    highlights: list[str],
+    visual_queries: list[str],
+    scene_image_paths: list[str],
 ) -> str | None:
     try:
         return build_video(
@@ -322,6 +352,10 @@ def create_video(
             image_path=image_path,
             output_path=str(output_path),
             vertical=vertical,
+            script=script,
+            highlights=highlights,
+            visual_queries=visual_queries,
+            scene_image_paths=scene_image_paths,
         )
     except Exception as exc:
         _append_log(f"Video generation failed: {exc}", level="error", stage="video")
@@ -534,6 +568,10 @@ def _run_once(*, mode: str, language: str) -> None:
         image_path=thumbnail_path,
         output_path=work_dir / "shorts.mp4",
         vertical=True,
+        script=content.shorts_script,
+        highlights=content.highlights[:3] or [content.hook],
+        visual_queries=content.visual_queries[:3],
+        scene_image_paths=_scene_image_paths(highlights[:3]),
     )
     if settings.enable_long_video:
         long_video_path = create_video(
@@ -541,6 +579,10 @@ def _run_once(*, mode: str, language: str) -> None:
             image_path=thumbnail_path,
             output_path=work_dir / "long.mp4",
             vertical=False,
+            script=content.long_script,
+            highlights=content.highlights,
+            visual_queries=content.visual_queries,
+            scene_image_paths=_scene_image_paths(highlights),
         )
     _set_stage(
         "video_created",
@@ -760,6 +802,10 @@ def run_test_mode(language: str | None = None) -> None:
         image_path=thumbnail_path,
         output_path=sample_video,
         vertical=True,
+        script="This is a pipeline test for audio to video generation.",
+        highlights=["Pipeline test scene", "Audio and visuals check", "Automation validation"],
+        visual_queries=["sports test graphic", "audio waveform visual", "video automation test card"],
+        scene_image_paths=[],
     )
     if not video_path or not Path(video_path).exists():
         raise RuntimeError("Test mode video generation failed.")

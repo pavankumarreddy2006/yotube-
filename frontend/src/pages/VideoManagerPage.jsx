@@ -1,4 +1,4 @@
-import { ExternalLink, RefreshCcw, Rocket, Video } from "lucide-react";
+import { ExternalLink, MonitorPlay, RefreshCcw, Rocket, Video } from "lucide-react";
 import { SectionCard } from "../components/SectionCard";
 
 export default function VideoManagerPage({ dashboard }) {
@@ -19,6 +19,17 @@ export default function VideoManagerPage({ dashboard }) {
         }
       >
         <div className="space-y-4">
+          <div className="soft-panel flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Review before upload</p>
+              <p className="mt-1 text-sm text-slate-400">Check pacing, subtitle readability, scene relevance, and whether the hook feels strong in the first few seconds.</p>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+              <MonitorPlay className="h-4 w-4" />
+              <span>Preview locally first</span>
+            </div>
+          </div>
+
           {previewItems.length ? (
             previewItems.map((item, index) => (
               <div key={`${item.url}-${index}`} className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
@@ -35,6 +46,14 @@ export default function VideoManagerPage({ dashboard }) {
                   <div className="min-w-0 flex-1">
                     <h3 className="text-lg font-medium text-white">{item.label}</h3>
                     <p className="mt-2 text-sm text-slate-400">{item.variant === "long" ? "Long-form output" : "Short-form output"}</p>
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-slate-300">
+                        {item.variant === "long" ? "Detailed review" : "Fast hook check"}
+                      </span>
+                      <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-cyan-200">
+                        {item.variant === "long" ? "Scene pacing matters" : "First 3 seconds matter"}
+                      </span>
+                    </div>
                     <a href={item.url} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm text-cyan-300 hover:text-cyan-200">
                       <ExternalLink className="h-4 w-4" />
                       <span>Open raw file</span>
@@ -58,12 +77,20 @@ export default function VideoManagerPage({ dashboard }) {
             <span>Start pipeline</span>
           </button>
         }
-      >
+        >
         <div className="space-y-4">
           <MetaRow label="Status" value={status?.statusLabel || "Idle"} />
           <MetaRow label="Current stage" value={status?.progressLabel || "Waiting"} />
           <MetaRow label="Thumbnail text" value={status?.thumbnailText || "Not available"} />
           <MetaRow label="Last topic" value={status?.selectedTopic || "No topic selected"} />
+          <div className="soft-panel">
+            <p className="text-sm font-medium text-white">Publishing checklist</p>
+            <div className="mt-3 space-y-2 text-sm text-slate-400">
+              <p>1. Make sure Telugu narration sounds natural.</p>
+              <p>2. Check that visuals match the spoken story.</p>
+              <p>3. Confirm Shorts starts strong in the first few seconds.</p>
+            </div>
+          </div>
           <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
             <p className="text-sm font-medium text-white">YouTube Links</p>
             <div className="mt-3 space-y-3">

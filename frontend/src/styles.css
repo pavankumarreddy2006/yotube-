@@ -15,6 +15,10 @@
 
   body {
     @apply min-h-screen bg-[#08111f] font-sans text-slate-100;
+    background:
+      radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 24%),
+      radial-gradient(circle at top right, rgba(34, 211, 238, 0.12), transparent 28%),
+      linear-gradient(180deg, #07101b 0%, #08111f 55%, #0b1422 100%);
   }
 
   #root {
@@ -48,6 +52,32 @@
 
   .glass-pill {
     @apply relative inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white;
+  }
+
+  .metric-tile {
+    @apply rounded-[24px] border border-white/10 p-5;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+      rgba(10, 18, 32, 0.86);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 18px 45px rgba(2, 8, 23, 0.24);
+  }
+
+  .feature-card {
+    @apply rounded-[24px] border border-white/10 p-5 transition duration-300;
+    background:
+      linear-gradient(145deg, rgba(34, 211, 238, 0.08), rgba(34, 197, 94, 0.04)),
+      rgba(9, 15, 27, 0.88);
+  }
+
+  .feature-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(103, 232, 249, 0.22);
+  }
+
+  .soft-panel {
+    @apply rounded-[24px] border border-white/10 bg-white/[0.03] p-4;
   }
 
   .hero-grid {

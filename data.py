@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -12,6 +13,15 @@ from utils import get_logger, retry
 
 
 logger = get_logger(__name__)
+
+
+def _contains_term(text: str, term: str) -> bool:
+    pattern = r"\b" + re.escape(term.lower()) + r"\b"
+    return bool(re.search(pattern, text.lower()))
+
+
+def _contains_any_term(text: str, terms: list[str]) -> bool:
+    return any(_contains_term(text, term) for term in terms)
 
 
 SPORTS_KEYWORDS = [
@@ -86,6 +96,7 @@ class TopicCandidate:
     summary: str
     source: str
     topic: str
+    image_url: str = ""
     category: str = "Sports"
     players: list[str] = field(default_factory=list)
     tournament: str = ""
@@ -131,10 +142,11 @@ def fetch_news() -> list[TopicCandidate]:
                 summary=description,
                 source="newsapi",
                 topic=title,
+                image_url=article.get("urlToImage") or "",
                 category=_categorize_text(text),
                 players=_extract_players(text),
-                tournament="IPL" if "ipl" in text else "",
-                is_india="india" in text or "team india" in text,
+                tournament="IPL" if _contains_term(text, "ipl") else "",
+                is_india=_contains_term(text, "india") or "team india" in text,
                 is_thriller=any(phrase in text for phrase in ["last over", "thriller", "super over", "dramatic"]),
                 published_at=article.get("publishedAt", ""),
                 raw=article,
@@ -171,11 +183,12 @@ def fetch_cricket_updates() -> list[TopicCandidate]:
                 summary=status or "Latest cricket score update.",
                 source="cricapi",
                 topic=name,
+                image_url="",
                 category="Cricket",
                 players=_extract_players(text),
-                tournament="IPL" if "ipl" in text else (match.get("matchType", "") or ""),
+                tournament="IPL" if _contains_term(text, "ipl") else (match.get("matchType", "") or ""),
                 score_details=score,
-                is_india=any("india" in team.lower() for team in teams),
+                is_india=any(_contains_term(team.lower(), "india") for team in teams),
                 is_thriller=any(phrase in text for phrase in ["need", "won by", "last over", "super over", "1 run", "2 runs"]),
                 published_at=datetime.now(timezone.utc).isoformat(),
                 raw=match,
@@ -279,12 +292,12 @@ def _dedupe_candidates(candidates: list[TopicCandidate]) -> list[TopicCandidate]
 
 def _categorize_text(text: str) -> str:
     lowered = text.lower()
-    if any(term in lowered for term in ["cricket", "ipl", "odi", "test match", "t20"]):
+    if _contains_any_term(lowered, ["cricket", "ipl", "odi", "test match", "t20"]):
         return "Cricket"
-    if any(term in lowered for term in ["football", "soccer", "premier league", "transfer"]):
+    if _contains_any_term(lowered, ["football", "soccer", "premier league", "transfer"]):
         return "Football"
-    if any(term in lowered for term in ["tennis", "atp", "wta", "grand slam"]):
+    if _contains_any_term(lowered, ["tennis", "atp", "wta", "grand slam"]):
         return "Tennis"
-    if "olympic" in lowered:
+    if _contains_term(lowered, "olympic") or _contains_term(lowered, "olympics"):
         return "Olympics"
     return "Sports"
