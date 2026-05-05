@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -28,6 +29,16 @@ logger = get_logger(__name__)
 PIPELINE_LOCK = threading.Lock()
 STATUS_FILE = OUTPUT_DIR / "pipeline_status.json"
 LATEST_RUN_FILE = OUTPUT_DIR / "latest_run.json"
+VARIATION_PREFIXES_TE = [
+    "బ్రేకింగ్ న్యూస్",
+    "లేటెస్ట్ అప్డేట్",
+    "జస్ట్ ఇన్",
+]
+VARIATION_PREFIXES_EN = [
+    "Breaking News",
+    "Latest Update",
+    "Just In",
+]
 
 
 def _fallback_package(language: str) -> ContentPackage:
@@ -83,6 +94,45 @@ def _write_status(update: dict[str, Any]) -> None:
 
 def _write_latest_run(payload: dict[str, Any]) -> None:
     dump_json(payload, LATEST_RUN_FILE)
+
+
+def _today_key() -> str:
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def _read_signature_state() -> dict[str, Any]:
+    latest_run = load_json(LATEST_RUN_FILE, default={}) or {}
+    signature_date = str(latest_run.get("signature_date", "")).strip()
+    today = _today_key()
+    if signature_date and signature_date != today:
+        latest_run["signature_date"] = today
+        latest_run["signature_history"] = []
+        dump_json(latest_run, LATEST_RUN_FILE)
+    return latest_run
+
+
+def _stored_signatures() -> list[str]:
+    latest_run = _read_signature_state()
+    history = latest_run.get("signature_history", [])
+    if isinstance(history, list):
+        return [str(item).strip().lower() for item in history if str(item).strip()]
+    legacy_signature = str(latest_run.get("headline_signature", "")).strip().lower()
+    return [legacy_signature] if legacy_signature else []
+
+
+def _record_signature(signature: str) -> None:
+    if not signature:
+        return
+    latest_run = _read_signature_state()
+    history = latest_run.get("signature_history", [])
+    normalized_history = [str(item).strip() for item in history if str(item).strip()]
+    normalized_signature = signature.strip()
+    if normalized_signature.lower() not in {item.lower() for item in normalized_history}:
+        normalized_history.append(normalized_signature)
+    latest_run["signature_date"] = _today_key()
+    latest_run["signature_history"] = normalized_history[-50:]
+    latest_run["headline_signature"] = normalized_signature
+    dump_json(latest_run, LATEST_RUN_FILE)
 
 
 def _safe_remove_path(path: Path) -> None:
@@ -241,15 +291,137 @@ def _load_latest_content_package() -> ContentPackage:
 
 
 def _headline_signature(highlights: list[TopicCandidate], language: str) -> str:
-    return f"{datetime.now():%Y-%m-%d}|{language}|" + " | ".join(
+    time_bucket = datetime.now().strftime("%Y-%m-%d|%H:%M")
+    return f"{time_bucket}|{language}|" + " | ".join(
         item.title.strip().lower() for item in highlights[: settings.max_daily_highlights]
     )
 
 
 def _is_duplicate_run(signature: str) -> bool:
-    latest_run = load_json(LATEST_RUN_FILE, default={}) or {}
-    last_signature = str(latest_run.get("headline_signature", "")).strip().lower()
-    return bool(signature and signature.lower() == last_signature)
+    stored = _stored_signatures()
+    return bool(signature and signature.lower() in stored)
+
+
+def _unique_signature(
+    *,
+    highlights: list[TopicCandidate],
+    language: str,
+    topic: str,
+    attempt: int = 0,
+) -> str:
+    base = _headline_signature(highlights, language)
+    extra = f"|topic={topic.strip().lower()}|attempt={attempt}|rand={random.randint(1000, 9999)}"
+    return base + extra
+
+
+def _apply_duplicate_variation(content: ContentPackage, *, topic: str, attempt: int) -> tuple[ContentPackage, dict[str, str]]:
+    timestamp = datetime.now().strftime("%H:%M")
+    prefix_pool = VARIATION_PREFIXES_TE if content.language == "te" else VARIATION_PREFIXES_EN
+    prefix = prefix_pool[(attempt - 1) % len(prefix_pool)]
+    variation_token = f"{prefix} {timestamp}"
+    random_token = f"v{random.randint(100, 999)}"
+
+    if content.language == "te":
+        intro = f"{variation_token}. {topic} గురించి మరో ముఖ్యమైన కోణం ఇప్పుడు చూద్దాం."
+        outro = f"ఈ అప్డేట్ {timestamp} సమయానికి అందుబాటులో ఉన్న సమాచారంపై ఆధారపడి ఉంది."
+    else:
+        intro = f"{variation_token}. Here is a fresh angle on {topic}."
+        outro = f"This update reflects the latest available information as of {timestamp}."
+
+    varied_title = f"{prefix}: {content.title} {timestamp}".strip()[:100]
+    varied_thumbnail = f"{prefix} {timestamp}".strip()
+    varied_shorts = f"{intro} {content.shorts_script}".strip()
+    varied_long = f"{intro} {content.long_script} {outro}".strip()
+    varied_highlights = list(content.highlights)
+    if varied_highlights:
+        varied_highlights[0] = intro[:140]
+    else:
+        varied_highlights = [intro[:140]]
+
+    varied_queries = list(content.visual_queries)
+    if varied_queries:
+        varied_queries[0] = f"{varied_queries[0]} latest bulletin {timestamp} {random_token}".strip()
+    else:
+        varied_queries = [f"professional sports breaking news bulletin {timestamp} {random_token}"]
+
+    varied_tags = list(content.tags)
+    for tag in [f"hourly sports update {timestamp}", f"fresh sports bulletin {random_token}"]:
+        if tag not in varied_tags:
+            varied_tags.append(tag)
+
+    description_suffix = f"\n\nUpdate Time: {timestamp}\nVariation: {random_token}"
+    varied_description = f"{content.description.strip()}{description_suffix}".strip()
+
+    varied = ContentPackage(
+        title=varied_title,
+        description=varied_description,
+        tags=varied_tags[:20],
+        thumbnail_text=varied_thumbnail,
+        hook=intro,
+        shorts_script=varied_shorts,
+        long_script=varied_long,
+        highlights=varied_highlights[:10],
+        visual_queries=varied_queries[:10],
+        hashtags=content.hashtags,
+        language=content.language,
+        language_label=content.language_label,
+    )
+    changes = {
+        "prefix": prefix,
+        "timestamp": timestamp,
+        "random_token": random_token,
+    }
+    return varied, changes
+
+
+def _ensure_unique_content(
+    content: ContentPackage,
+    *,
+    highlights: list[TopicCandidate],
+    language: str,
+    topic: str,
+) -> tuple[ContentPackage, str]:
+    signature = _unique_signature(highlights=highlights, language=language, topic=topic, attempt=0)
+    if not _is_duplicate_run(signature):
+        return content, signature
+
+    _append_log(
+        f"Duplicate detected for topic '{topic}'. Signature already exists for {_today_key()}. Applying variation and continuing.",
+        level="warning",
+        stage="duplicate",
+    )
+    logger.warning("Duplicate detected, applying variation and continuing...")
+
+    for attempt in range(1, 6):
+        varied_content, changes = _apply_duplicate_variation(content, topic=topic, attempt=attempt)
+        varied_signature = _unique_signature(
+            highlights=highlights,
+            language=language,
+            topic=f"{topic} {changes['prefix']} {changes['timestamp']} {changes['random_token']}",
+            attempt=attempt,
+        )
+        _append_log(
+            f"Duplicate variation attempt {attempt}: prefix={changes['prefix']}, timestamp={changes['timestamp']}, token={changes['random_token']}.",
+            level="info",
+            stage="duplicate",
+        )
+        if not _is_duplicate_run(varied_signature):
+            return varied_content, varied_signature
+
+    fallback_changes = {"prefix": "Retry Update", "timestamp": datetime.now().strftime("%H:%M:%S"), "random_token": f"v{random.randint(1000,9999)}"}
+    fallback_content, _ = _apply_duplicate_variation(content, topic=topic, attempt=1)
+    fallback_signature = _unique_signature(
+        highlights=highlights,
+        language=language,
+        topic=f"{topic} {fallback_changes['timestamp']} {fallback_changes['random_token']}",
+        attempt=99,
+    )
+    _append_log(
+        f"Duplicate persisted after variations. Using fallback unique signature with timestamp={fallback_changes['timestamp']} token={fallback_changes['random_token']}.",
+        level="warning",
+        stage="duplicate",
+    )
+    return fallback_content, fallback_signature
 
 
 def _write_subtitles(script: str, output_path: Path) -> str | None:
@@ -528,8 +700,6 @@ def _run_once(*, mode: str, language: str) -> None:
     candidates, trends = fetch_all_candidates()
     highlights = select_daily_highlights(candidates) if candidates else [_safe_topic()]
     signature = _headline_signature(highlights, language)
-    if _is_duplicate_run(signature):
-        raise RuntimeError("Duplicate content signature detected for today's scheduled language run")
 
     selected_topic = highlights[0]
     try:
@@ -546,6 +716,12 @@ def _run_once(*, mode: str, language: str) -> None:
     )
 
     content = generate_content(selected_topic, scored, trends, highlights, language=language)
+    content, signature = _ensure_unique_content(
+        content,
+        highlights=highlights,
+        language=language,
+        topic=selected_topic.title,
+    )
     _set_stage(
         "script_ready",
         "Processing",
@@ -669,6 +845,7 @@ def _finalize_success(
     headline_signature: str,
     upload_result: str,
 ) -> None:
+    _record_signature(headline_signature)
     _write_latest_run(
         {
             "work_dir": str(work_dir),
@@ -688,6 +865,8 @@ def _finalize_success(
             "long_upload": long_upload_result,
             "upload": upload_result,
             "headline_signature": headline_signature,
+            "signature_date": _today_key(),
+            "signature_history": _stored_signatures(),
             "completed_at": datetime.now().isoformat(),
         }
     )
