@@ -8,6 +8,7 @@ from typing import Any
 import requests
 from pytrends.request import TrendReq
 
+from runtime import get_runtime_settings
 from settings import settings
 from utils import get_logger, retry
 
@@ -215,20 +216,22 @@ def fetch_trends() -> list[str]:
 
 def fetch_all_candidates() -> tuple[list[TopicCandidate], list[str]]:
     trends = fetch_trends()
-    news: list[TopicCandidate] = []
-    cricket: list[TopicCandidate] = []
+    runtime = get_runtime_settings()
+    source_order = runtime.preferred_news_sources or ["cricapi", "newsapi", "fallback"]
+    collected: list[TopicCandidate] = []
 
-    try:
-        news = fetch_news()
-    except Exception as exc:
-        logger.exception("News fetch failed: %s", exc)
+    for source_name in source_order:
+        try:
+            if source_name == "cricapi":
+                collected.extend(fetch_cricket_updates())
+            elif source_name == "newsapi":
+                collected.extend(fetch_news())
+            elif source_name == "fallback":
+                collected.extend([TopicCandidate(**story) for story in FALLBACK_STORIES])
+        except Exception as exc:
+            logger.exception("%s fetch failed: %s", source_name, exc)
 
-    try:
-        cricket = fetch_cricket_updates()
-    except Exception as exc:
-        logger.exception("Cricket fetch failed: %s", exc)
-
-    merged = _dedupe_candidates(news + cricket)
+    merged = _dedupe_candidates(collected)
     if not merged:
         merged = [TopicCandidate(**story) for story in FALLBACK_STORIES]
 

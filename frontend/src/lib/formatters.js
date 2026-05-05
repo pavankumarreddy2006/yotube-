@@ -33,6 +33,10 @@ export function normalizeStatus(payload) {
     thumbnailText: payload?.thumbnail_text || "",
     selectedTopic: payload?.selected_topic || "",
     selectedTopicSummary: payload?.selected_topic_summary || "",
+    mode: payload?.mode || "full",
+    notifications: Array.isArray(payload?.notifications) ? payload.notifications : [],
+    runtime: payload?.runtime || null,
+    queue: payload?.queue || { current_job: null, queued_jobs: [], queue_length: 0, completed_jobs: [], failed_jobs: [] },
   };
 }
 
@@ -73,6 +77,32 @@ export function normalizeConfig(payload) {
     dailyRunTime: payload?.daily_run_time || "",
     dailyRunnerEnabled: Boolean(payload?.daily_runner_enabled),
     languages,
+  };
+}
+
+export function normalizeRuntime(payload) {
+  return {
+    defaultLanguage: payload?.default_language || "te",
+    defaultMode: payload?.default_mode || "full",
+    enableShorts: payload?.enable_shorts !== false,
+    enableLongVideo: Boolean(payload?.enable_long_video),
+    enableUpload: Boolean(payload?.enable_upload),
+    enableNotifications: payload?.enable_notifications !== false,
+    ttsProvider: payload?.tts_provider || "gtts",
+    preferredNewsSources: Array.isArray(payload?.preferred_news_sources) ? payload.preferred_news_sources : ["cricapi", "newsapi", "fallback"],
+    preferredVisualSources: Array.isArray(payload?.preferred_visual_sources) ? payload.preferred_visual_sources : ["article-images", "fallback"],
+    shortVideoDuration: payload?.short_video_duration || 45,
+    longVideoDuration: payload?.long_video_duration || 180,
+    telegramBotToken: payload?.telegram_bot_token || "",
+    telegramChatId: payload?.telegram_chat_id || "",
+    telegramConnected: Boolean(payload?.telegram_connected),
+    promptSeed: payload?.prompt_seed || "",
+    promptStyle: payload?.prompt_style || "breaking",
+    autoModeLabel: payload?.auto_mode_label || "Full Auto",
+    languageOptions: payload?.language_options || [],
+    modeOptions: payload?.mode_options || [],
+    ttsOptions: payload?.tts_options || [],
+    newsSourceOptions: payload?.news_source_options || [],
   };
 }
 

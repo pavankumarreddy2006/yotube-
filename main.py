@@ -14,9 +14,13 @@ from typing import Any
 
 from content import ContentPackage, fallback_content, generate_content, normalize_language
 from data import TopicCandidate, fallback_story_for_date, fetch_all_candidates, select_daily_highlights
+from events import publish_event
 from notify import send_stage_notification, send_upload_failure, send_upload_success
+from queue_manager import job_queue
+from runtime import get_runtime_settings
 from scoring import ScoredTopic, choose_best_topic
 from settings import BASE_DIR, OUTPUT_DIR, TEMP_DIR, settings
+from storage import get_storage, upload_artifact
 from thumbnail import create_thumbnail
 from upload import upload_video
 from utils import dump_json, get_logger, load_json, setup_logging, slugify
@@ -246,6 +250,7 @@ def _append_notification(message: str) -> None:
     )
     current["notifications"] = notifications[-30:]
     dump_json(current, STATUS_FILE)
+    publish_event("notification", message, {"message": message})
 
 
 def _set_stage(
@@ -269,7 +274,9 @@ def _set_stage(
             "progress_label": label,
         }
     )
+    job_queue.mark_current_job_stage(stage, detail or label)
     _append_log(detail or label, level="error" if failed else "info", stage=stage)
+    publish_event(stage, detail or label, {"stage": stage, "label": label, "failed": failed})
     if telegram_stage:
         send_stage_notification(telegram_stage, detail)
         _append_notification(f"{label}: {detail}" if detail else label)
@@ -617,14 +624,15 @@ def _attempt_uploads(
     long_video_path: str | None,
     content: ContentPackage,
     thumbnail_path: str | None,
+    runtime_settings,
 ) -> tuple[str | None, str | None]:
-    if not settings.enable_upload or not settings.has_youtube_upload:
+    if not runtime_settings.enable_upload or not settings.has_youtube_upload:
         skipped = "upload-skipped-missing-credentials"
-        return skipped, skipped if settings.enable_long_video else None
+        return skipped, skipped if runtime_settings.enable_long_video else None
     _set_stage("uploading", "Uploading", detail="Uploading long and short videos to YouTube.", telegram_stage="uploading")
     shorts_upload_result = upload_video_safe(shorts_video_path, content, thumbnail_path, long_form=False)
     long_upload_result: str | None = None
-    if settings.enable_long_video:
+    if runtime_settings.enable_long_video and long_video_path:
         long_upload_result = upload_video_safe(long_video_path, content, thumbnail_path, long_form=True)
     return shorts_upload_result, long_upload_result
 
@@ -650,6 +658,41 @@ def _artifact_url(path: str | None) -> str:
     return f"/output/{web_path}"
 
 
+def _cloud_folder_for_workdir(work_dir: Path) -> str:
+    return f"{settings.cloudinary_folder.strip('/')}/{work_dir.name}".strip("/")
+
+
+def _upload_artifacts_to_cloud(
+    *,
+    work_dir: Path,
+    shorts_audio_path: str | None,
+    long_audio_path: str | None,
+    shorts_video_path: str | None,
+    long_video_path: str | None,
+    thumbnail_path: str | None,
+) -> dict[str, Any]:
+    folder = _cloud_folder_for_workdir(work_dir)
+    artifacts: dict[str, Any] = {"folder": folder}
+
+    upload_plan = [
+        ("shorts_audio", shorts_audio_path, "video"),
+        ("long_audio", long_audio_path, "video"),
+        ("shorts_video", shorts_video_path, "video"),
+        ("long_video", long_video_path, "video"),
+        ("thumbnail", thumbnail_path, "image"),
+    ]
+    for key, path, resource_type in upload_plan:
+        if not path:
+            continue
+        artifacts[key] = upload_artifact(
+            path,
+            folder=folder,
+            resource_type=resource_type,
+            delete_local=resource_type in {"video", "image"} and key in {"shorts_audio", "long_audio"},
+        )
+    return artifacts
+
+
 def _topic_title(value: Any, fallback: str = "") -> str:
     if isinstance(value, TopicCandidate):
         return value.title
@@ -666,7 +709,10 @@ def _topic_summary(value: Any, fallback: str = "") -> str:
     return fallback
 
 
-def _run_once(*, mode: str, language: str) -> None:
+def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
+    runtime_settings = get_runtime_settings()
+    make_shorts = runtime_settings.enable_shorts and mode in {"full", "short"}
+    make_long = runtime_settings.enable_long_video and mode in {"full", "long"}
     selected_topic = _safe_topic()
     scored = _safe_scored_topic(selected_topic)
     content = _fallback_package(language)
@@ -694,6 +740,7 @@ def _run_once(*, mode: str, language: str) -> None:
             long_video_path=long_video_path,
             content=content,
             thumbnail_path=thumbnail_path,
+            runtime_settings=runtime_settings,
         )
         upload_result = _build_upload_summary(shorts_upload_result, long_upload_result)
         _finalize_success(
@@ -722,11 +769,23 @@ def _run_once(*, mode: str, language: str) -> None:
     candidates, trends = fetch_all_candidates()
     highlights = select_daily_highlights(candidates) if candidates else [_safe_topic()]
     selected_topic = highlights[0]
-    try:
-        scored = choose_best_topic(highlights)
-        selected_topic = scored.candidate
-    except Exception as exc:
-        logger.error("Scoring failed: %s", exc)
+    if topic_override.strip():
+        selected_topic = TopicCandidate(
+            title=topic_override.strip(),
+            summary=f"Manual prompt override for {topic_override.strip()}",
+            source="manual",
+            topic=topic_override.strip(),
+            category="Sports",
+            is_trending=True,
+        )
+        highlights = [selected_topic, *highlights][: max(1, len(highlights))]
+        scored = _safe_scored_topic(selected_topic)
+    else:
+        try:
+            scored = choose_best_topic(highlights)
+            selected_topic = scored.candidate
+        except Exception as exc:
+            logger.error("Scoring failed: %s", exc)
 
     _set_stage(
         "news_fetched",
@@ -769,7 +828,7 @@ def _run_once(*, mode: str, language: str) -> None:
     )
 
     shorts_audio_path = generate_voice_track(content.shorts_script, work_dir / "shorts.mp3", language)
-    if settings.enable_long_video:
+    if make_long:
         long_audio_path = generate_voice_track(content.long_script, work_dir / "long.mp3", language)
     _set_stage(
         "voice_generated",
@@ -778,17 +837,18 @@ def _run_once(*, mode: str, language: str) -> None:
         telegram_stage="voice_generated",
     )
 
-    shorts_video_path = create_video(
-        audio_path=shorts_audio_path,
-        image_path=thumbnail_path,
-        output_path=work_dir / "shorts.mp4",
-        vertical=True,
-        script=content.shorts_script,
-        highlights=content.highlights[:3] or [content.hook],
-        visual_queries=content.visual_queries[:3],
-        scene_image_paths=_scene_image_paths(highlights[:3]),
-    )
-    if settings.enable_long_video:
+    if make_shorts:
+        shorts_video_path = create_video(
+            audio_path=shorts_audio_path,
+            image_path=thumbnail_path,
+            output_path=work_dir / "shorts.mp4",
+            vertical=True,
+            script=content.shorts_script,
+            highlights=content.highlights[:3] or [content.hook],
+            visual_queries=content.visual_queries[:3],
+            scene_image_paths=_scene_image_paths(highlights[:3]),
+        )
+    if make_long:
         long_video_path = create_video(
             audio_path=long_audio_path,
             image_path=thumbnail_path,
@@ -810,8 +870,8 @@ def _run_once(*, mode: str, language: str) -> None:
     if thumbnail_issues:
         raise RuntimeError("; ".join(thumbnail_issues))
 
-    issues = _quality_check_video(shorts_video_path, min_seconds=20, label="shorts video")
-    if settings.enable_long_video:
+    issues = _quality_check_video(shorts_video_path, min_seconds=20, label="shorts video") if make_shorts else []
+    if make_long:
         issues.extend(_quality_check_video(long_video_path, min_seconds=120, label="long video"))
     if issues:
         raise RuntimeError("; ".join(issues))
@@ -821,6 +881,7 @@ def _run_once(*, mode: str, language: str) -> None:
         long_video_path=long_video_path,
         content=content,
         thumbnail_path=thumbnail_path,
+        runtime_settings=runtime_settings,
     )
     upload_result = _build_upload_summary(shorts_upload_result, long_upload_result)
     _finalize_success(
@@ -864,6 +925,17 @@ def _finalize_success(
     headline_signature: str,
     upload_result: str,
 ) -> None:
+    cloud_artifacts = _upload_artifacts_to_cloud(
+        work_dir=work_dir,
+        shorts_audio_path=shorts_audio_path,
+        long_audio_path=long_audio_path,
+        shorts_video_path=shorts_video_path,
+        long_video_path=long_video_path,
+        thumbnail_path=thumbnail_path,
+    )
+    shorts_video_url = cloud_artifacts.get("shorts_video", {}).get("secure_url") or shorts_video_path
+    long_video_url = cloud_artifacts.get("long_video", {}).get("secure_url") or long_video_path
+    thumbnail_url = cloud_artifacts.get("thumbnail", {}).get("secure_url") or thumbnail_path
     _record_signature(headline_signature)
     _record_script_fingerprint(content.long_script or content.shorts_script)
     _write_latest_run(
@@ -881,6 +953,10 @@ def _finalize_success(
             "shorts_video": shorts_video_path,
             "long_video": long_video_path,
             "thumbnail": thumbnail_path,
+            "shorts_video_url": shorts_video_url,
+            "long_video_url": long_video_url,
+            "thumbnail_url": thumbnail_url,
+            "cloud_artifacts": cloud_artifacts,
             "shorts_upload": shorts_upload_result,
             "long_upload": long_upload_result,
             "upload": upload_result,
@@ -892,10 +968,10 @@ def _finalize_success(
     )
 
     preview_items = []
-    if shorts_video_path:
-        preview_items.append({"label": "Shorts Preview", "url": _artifact_url(shorts_video_path), "variant": "short"})
-    if long_video_path:
-        preview_items.append({"label": "Long Video Preview", "url": _artifact_url(long_video_path), "variant": "long"})
+    if shorts_video_url:
+        preview_items.append({"label": "Shorts Preview", "url": shorts_video_url if str(shorts_video_url).startswith("http") else _artifact_url(shorts_video_url), "variant": "short"})
+    if long_video_url:
+        preview_items.append({"label": "Long Video Preview", "url": long_video_url if str(long_video_url).startswith("http") else _artifact_url(long_video_url), "variant": "long"})
 
     youtube_links = [
         {"label": "Shorts", "url": shorts_upload_result}
@@ -923,13 +999,22 @@ def _finalize_success(
             "work_dir": str(work_dir),
             "selected_topic": _topic_title(selected_topic, content.title),
             "selected_topic_summary": _topic_summary(selected_topic),
-            "thumbnail_url": thumbnail_path,
+            "thumbnail_url": thumbnail_url,
             "thumbnail_text": content.thumbnail_text,
             "preview_items": preview_items,
             "youtube_links": youtube_links,
             "headline_signature": headline_signature,
+            "cloud_artifacts": cloud_artifacts,
         }
     )
+    if get_storage().is_enabled():
+        for local_path in [shorts_audio_path, long_audio_path, shorts_video_path, long_video_path, thumbnail_path]:
+            if not local_path:
+                continue
+            try:
+                Path(str(local_path)).unlink(missing_ok=True)
+            except Exception:
+                pass
     _cleanup_old_artifacts(keep_work_dir=work_dir)
     _append_notification("Automation run completed successfully.")
     if shorts_upload_result and shorts_upload_result.startswith("https://"):
@@ -939,8 +1024,9 @@ def _finalize_success(
     send_stage_notification("all_done", "The full sports automation pipeline finished successfully.")
 
 
-def run_pipeline(mode: str = "full", language: str | None = None) -> None:
-    normalized_language = normalize_language(language)
+def run_pipeline(mode: str = "full", language: str | None = None, topic_override: str = "") -> None:
+    runtime_settings = get_runtime_settings()
+    normalized_language = normalize_language(language or runtime_settings.default_language)
     if not PIPELINE_LOCK.acquire(blocking=False):
         raise RuntimeError("Automation is already running")
 
@@ -958,6 +1044,11 @@ def run_pipeline(mode: str = "full", language: str | None = None) -> None:
             "language_label": "Telugu" if normalized_language == "te" else "English",
             "live_logs": [],
             "notifications": [],
+            "preview_items": [],
+            "youtube_links": [],
+            "thumbnail_url": "",
+            "selected_topic": "",
+            "selected_topic_summary": "",
         }
     )
 
@@ -967,7 +1058,7 @@ def run_pipeline(mode: str = "full", language: str | None = None) -> None:
         for attempt in range(1, attempts + 1):
             try:
                 _append_log(f"Pipeline attempt {attempt} of {attempts}.", stage="retry")
-                _run_once(mode=mode, language=normalized_language)
+                _run_once(mode=mode, language=normalized_language, topic_override=topic_override)
                 return
             except Exception as exc:
                 last_error = exc
@@ -993,11 +1084,11 @@ def run_pipeline(mode: str = "full", language: str | None = None) -> None:
         PIPELINE_LOCK.release()
 
 
-def run_pipeline_logic(mode: str = "full", language: str | None = None) -> None:
+def run_pipeline_logic(mode: str = "full", language: str | None = None, topic_override: str = "") -> None:
     if mode == "test":
         run_test_mode(language)
         return
-    run_pipeline(mode, language)
+    run_pipeline(mode, language, topic_override)
 
 
 def run_test_mode(language: str | None = None) -> None:

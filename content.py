@@ -306,15 +306,24 @@ Rules:
 - Avoid robotic tone.
 Return strict JSON with keys: title, script, language, language_label, video_prompt
 """.strip()
-    response = client.responses.create(model=settings.openai_model, input=prompt)
-    text = response.output_text.strip()
-    match = re.search(r"\{.*\}", text, flags=re.S)
-    payload = json.loads(match.group(0) if match else text)
-    payload["language"] = language
-    payload["language_label"] = language_label
-    if include_video_prompt and not payload.get("video_prompt"):
-        payload["video_prompt"] = f"Professional sports explainer visuals for {topic}"
-    return payload
+    def operation() -> dict[str, object]:
+        response = client.responses.create(model=settings.openai_model, input=prompt)
+        text = response.output_text.strip()
+        match = re.search(r"\{.*\}", text, flags=re.S)
+        payload = json.loads(match.group(0) if match else text)
+        payload["language"] = language
+        payload["language_label"] = language_label
+        if include_video_prompt and not payload.get("video_prompt"):
+            payload["video_prompt"] = f"Professional sports explainer visuals for {topic}"
+        return payload
+
+    def should_retry(exc: Exception, attempt: int) -> bool:
+        del attempt
+        if isinstance(exc, openai.RateLimitError):
+            return False
+        return True
+
+    return retry(operation, operation_name="custom content generation", should_retry=should_retry)
 
 
 def _fallback_content(

@@ -1,443 +1,529 @@
 import {
-  AlertTriangle,
-  ArrowRight,
+  AlertCircle,
+  Bot,
   CheckCircle2,
-  Clock3,
-  Flame,
-  ImagePlus,
   LoaderCircle,
+  MessageSquareShare,
   MicVocal,
-  PlayCircle,
+  Newspaper,
   Rocket,
-  TrendingUp,
-  UploadCloud,
+  Settings2,
+  Sparkles,
+  Upload,
   Video,
   WandSparkles,
 } from "lucide-react";
-import { NewsList } from "../components/NewsList";
-import { LogsPanel } from "../components/LogsPanel";
-import { SectionCard } from "../components/SectionCard";
+import { useEffect, useState } from "react";
 
-const pipelineStages = [
-  { key: "script", label: "Script" },
-  { key: "voice", label: "Voice" },
-  { key: "images", label: "Images" },
-  { key: "video", label: "Video" },
-  { key: "upload", label: "Upload" },
-];
+export default function DashboardPage({ dashboard }) {
+  const { status, news, logs, runtime, language, actionState, metrics, promptInput, generatedPrompt, askAiResult, toasts } = dashboard;
+  const [settingsForm, setSettingsForm] = useState(runtime);
 
-const actionCards = [
-  {
-    key: "run",
-    title: "Generate & Upload Video",
-    description: "Run the full end-to-end pipeline with one click and watch each stage update live.",
-    icon: Rocket,
-  },
-  {
-    key: "scripts",
-    title: "Create Telugu Script",
-    description: "Turn a fresh sports topic into a structured Telugu narration and prompt set.",
-    icon: WandSparkles,
-  },
-  {
-    key: "voice",
-    title: "Generate Voice",
-    description: "Review narration progress and keep voice generation quality visible in the workflow.",
-    icon: MicVocal,
-  },
-  {
-    key: "images",
-    title: "Generate Images",
-    description: "Open media tools and verify visual assets before the render stage starts.",
-    icon: ImagePlus,
-  },
-];
+  useEffect(() => {
+    setSettingsForm(runtime);
+  }, [runtime]);
 
-export default function DashboardPage({ dashboard, onNavigate }) {
-  const { status, language, loading, statusLoading, actionState, runNow, metrics, news, logs } = dashboard;
-  const completion = getCompletion(status);
-  const statusTone = getStatusTone(status);
-  const uploadsToday = status?.youtubeLinks?.length || 0;
-  const previewItems = status?.previewItems || [];
-  const lastUploadTime = status?.lastRunTimeLabel || "Not yet uploaded";
-  const stageStates = getStageStates(status);
-  const trendingTopic = status?.selectedTopic || news[0]?.title || "No active topic";
+  if (!runtime) {
+    return <div className="empty-state">Loading automation console...</div>;
+  }
 
-  const metricCards = [
-    {
-      label: "Videos Uploaded Today",
-      value: String(uploadsToday),
-      icon: TrendingUp,
-      detail: uploadsToday ? "Successful publishing links available" : "No uploads completed yet",
-    },
-    {
-      label: "Average Processing Time",
-      value: status?.running ? "~12 min" : status?.lastRunTimeLabel ? "~9 min" : "Pending",
-      icon: Clock3,
-      detail: "Estimated from the current automation pace",
-    },
-    {
-      label: "Failed Jobs",
-      value: status?.failed ? "1" : "0",
-      icon: AlertTriangle,
-      detail: status?.failed ? "Attention needed on the current run" : "Pipeline healthy",
-    },
-    {
-      label: "Trending Topic",
-      value: truncateText(trendingTopic, 42),
-      icon: Flame,
-      detail: "Current story feeding the generation flow",
-    },
-  ];
+  const statusTone = status?.failed ? "failed" : status?.running ? "running" : "idle";
+  const latestLinks = status?.youtubeLinks || [];
+  const queue = status?.queue || { current_job: null, queued_jobs: [], queue_length: 0 };
+  const progress = getProgress(status);
 
   return (
     <div className="space-y-6">
+      <ToastStack items={toasts} onDismiss={dashboard.dismissToast} />
+
       <section className="hero-shell">
         <div className="hero-grid">
-          <div className="flex flex-col justify-between gap-6">
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="chip chip-cyan">One-click automation</span>
+              <span className="chip">Language: {language === "te" ? "Telugu" : "English"}</span>
+              <span className={`chip ${statusTone === "failed" ? "chip-rose" : statusTone === "running" ? "chip-amber" : "chip-emerald"}`}>
+                {status?.statusLabel || "Idle"}
+              </span>
+            </div>
+
             <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.22em] text-cyan-200">
-                  Automation Console
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
-                  Default language: {language === "en" ? "English" : "Telugu"}
-                </span>
-              </div>
-              <h2 className="mt-5 max-w-3xl font-display text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                Modern control for AI news-to-video production.
+              <h2 className="max-w-3xl font-display text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                Control the full AI YouTube pipeline from one clean dashboard.
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-                Launch the workflow, track each pipeline stage, preview generated media, and keep operations clear enough to manage in seconds.
+                News intake, prompt generation, Telugu voice, video rendering, thumbnails, YouTube upload, and Telegram alerts are now managed from one place.
               </p>
             </div>
 
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={runNow}
-                  disabled={Boolean(status?.running) || actionState.run}
-                  className="start-button"
-                >
-                  {actionState.run ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Rocket className="h-5 w-5" />}
-                  <span>{actionState.run ? "Starting pipeline..." : "Start Automation"}</span>
-                </button>
-                <button type="button" onClick={() => onNavigate("/dashboard/videos")} className="ghost-button">
-                  <PlayCircle className="h-4 w-4" />
-                  <span>Open Video Preview</span>
-                </button>
-              </div>
-
-              <div className="section-surface">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Current stage</p>
-                    <p className="mt-2 text-lg font-semibold text-white">{status?.currentTask || "Waiting for your next run"}</p>
-                  </div>
-                  <p className="text-sm text-slate-400">{completion}% complete</p>
-                </div>
-                <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#3b82f6,#8b5cf6)] transition-all duration-500"
-                    style={{ width: `${completion}%` }}
-                  />
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {pipelineStages.map((stage) => (
-                    <div key={stage.key} className={getPipelinePillClass(stageStates[stage.key])}>
-                      <span>{stage.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <MetricCard label="News Ready" value={String(metrics.newsCount)} icon={Newspaper} />
+              <MetricCard label="Rendered Videos" value={String(metrics.videoCount)} icon={Video} />
+              <MetricCard label="Uploads" value={String(metrics.uploadCount)} icon={Upload} />
+              <MetricCard label="System Logs" value={String(metrics.logCount)} icon={Bot} />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="section-surface">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Live Status</p>
-                  <p className="mt-2 text-3xl font-semibold text-white">{statusTone.label}</p>
-                </div>
-                <div className={`status-dot ${statusTone.dotClass}`} />
+          <div className="section-surface space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Live pipeline</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{status?.currentTask || "Waiting for next run"}</p>
               </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <InfoTile label="Current task" value={status?.currentTask || "Awaiting trigger"} />
-                <InfoTile label="Progress" value={`${completion}%`} />
-                <InfoTile label="Estimated time left" value={status?.running ? `${Math.max(1, 14 - Math.round(completion / 10))} min` : "Ready now"} />
-                <InfoTile label="Last upload time" value={lastUploadTime} />
-              </div>
+              {status?.running ? <LoaderCircle className="h-8 w-8 animate-spin text-cyan-300" /> : <CheckCircle2 className="h-8 w-8 text-emerald-300" />}
             </div>
-
-            <div className="section-surface">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Pipeline visualization</p>
-              <div className="mt-4 flex flex-col gap-3">
-                {pipelineStages.map((stage, index) => (
-                  <div key={stage.key} className="flex items-center gap-3">
-                    <div className={getNodeClass(stageStates[stage.key])}>
-                      {renderStageIcon(stageStates[stage.key])}
-                      <span>{stage.label}</span>
-                    </div>
-                    {index < pipelineStages.length - 1 ? <ArrowRight className="h-4 w-4 text-slate-500" /> : null}
-                  </div>
-                ))}
+            <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-sm text-slate-400">Current stage</p>
+              <p className="mt-1 text-lg font-medium text-white">{status?.currentStage || "idle"}</p>
+              <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#2563eb,#f59e0b)] transition-all duration-500" style={{ width: `${progress}%` }} />
               </div>
+              <p className="mt-4 text-sm text-slate-400">Last run</p>
+              <p className="mt-1 text-white">{status?.lastRunTimeLabel || "Not available yet"}</p>
+            </div>
+            <div className="space-y-2">
+              <StatusRow label="Processing" active={Boolean(status?.running)} />
+              <StatusRow label="Completed" active={status?.status === "completed"} success />
+              <StatusRow label="Failed" active={Boolean(status?.failed)} danger />
             </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {metricCards.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div key={item.label} className="metric-tile">
-              <div className="flex items-start justify-between gap-3">
-                <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/10 p-3">
-                  <Icon className="h-5 w-5 text-cyan-200" />
-                </div>
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                  Live
-                </span>
-              </div>
-              <p className="mt-5 text-sm text-slate-400">{item.label}</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{item.value}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">{item.detail}</p>
+      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="section-surface space-y-5">
+          <div className="flex items-center gap-3">
+            <Rocket className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="text-xl font-semibold text-white">Dashboard Control Panel</h3>
+              <p className="text-sm text-slate-400">Start full automation, Shorts-only, or long-form production with optional manual topic override.</p>
             </div>
-          );
-        })}
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-        <SectionCard
-          title="Quick Actions"
-          description="Jump straight into the workflows you use most often."
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            {actionCards.map((card) => {
-              const Icon = card.icon;
-              const disabled = card.key === "run" ? Boolean(status?.running) || actionState.run : false;
-              const handleClick =
-                card.key === "run"
-                  ? runNow
-                  : card.key === "scripts"
-                    ? () => onNavigate("/dashboard/scripts")
-                    : card.key === "voice"
-                      ? () => onNavigate("/dashboard/scripts")
-                      : () => onNavigate("/dashboard/assets");
-
-              return (
-                <button key={card.key} type="button" onClick={handleClick} disabled={disabled} className="quick-action-card">
-                  <div className="relative flex h-full flex-col justify-between gap-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/10 p-3">
-                        <Icon className="h-5 w-5 text-cyan-200" />
-                      </div>
-                      <ArrowRight className="h-5 w-5 text-slate-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">{card.title}</h3>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">{card.description}</p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
           </div>
-        </SectionCard>
 
-        <SectionCard
-          title="Video Preview"
-          description="Review the latest render output and upload state without leaving the dashboard."
-          actions={
-            <button type="button" onClick={() => onNavigate("/dashboard/videos")} className="ghost-button">
-              Open manager
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm text-slate-300">Language</span>
+              <select className="input-surface w-full" value={language} onChange={(event) => dashboard.setLanguage(event.target.value)}>
+                {runtime.languageOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-sm text-slate-300">Default mode</span>
+              <select
+                className="input-surface w-full"
+                value={settingsForm?.defaultMode || "full"}
+                onChange={(event) => setSettingsForm((prev) => ({ ...prev, defaultMode: event.target.value }))}
+              >
+                {runtime.modeOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="space-y-2">
+            <span className="text-sm text-slate-300">Prompt input / manual topic</span>
+            <textarea
+              className="input-surface min-h-[120px] w-full resize-y"
+              value={promptInput}
+              onChange={(event) => dashboard.setPromptInput(event.target.value)}
+              placeholder="Example: IPL playoff race, MS Dhoni latest update, India match preview..."
+            />
+          </label>
+
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={dashboard.runNow} disabled={actionState.auto || status?.running} className="start-button">
+              {actionState.auto ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Rocket className="h-5 w-5" />}
+              Start Auto Mode
             </button>
-          }
-        >
-          {previewItems.length ? (
-            <div className="space-y-4">
-              {previewItems.slice(0, 2).map((item, index) => (
-                <div key={`${item.url}-${index}`} className="video-item">
-                  <div className="overflow-hidden rounded-[20px] border border-white/10 bg-slate-950/50 md:w-[240px]">
-                    {item.url ? (
-                      <video src={item.url} controls preload="metadata" className="aspect-video h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex aspect-video items-center justify-center">
-                        <Video className="h-8 w-8 text-slate-500" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <StatusChip state={status?.failed ? "failed" : status?.running ? "processing" : "uploaded"} />
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-slate-300">
-                        {item.variant === "long" ? "Long format" : "Short format"}
-                      </span>
-                    </div>
-                    <h3 className="mt-3 text-lg font-semibold text-white">{item.label}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">
-                      {item.variant === "long" ? "Detailed version for deeper storytelling." : "Hook-focused preview optimized for fast engagement."}
-                    </p>
-                    <a href={item.url} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm text-cyan-300 hover:text-cyan-200">
-                      Open preview
-                    </a>
-                  </div>
-                </div>
-              ))}
+            <button type="button" onClick={dashboard.runShort} disabled={actionState.short || status?.running} className="ghost-button">
+              {actionState.short ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+              Start Short Video
+            </button>
+            <button type="button" onClick={dashboard.runLong} disabled={actionState.long || status?.running} className="ghost-button">
+              {actionState.long ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+              Start Long Video
+            </button>
+            <button type="button" onClick={dashboard.generateAutoPrompt} disabled={actionState.prompt} className="ghost-button">
+              {actionState.prompt ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+              Auto Prompt Generator
+            </button>
+          </div>
+
+          {generatedPrompt ? (
+            <div className="rounded-[20px] border border-cyan-400/20 bg-cyan-500/10 p-4">
+              <div className="flex items-center gap-2 text-cyan-200">
+                <Sparkles className="h-4 w-4" />
+                <p className="text-sm font-medium">Generated prompt</p>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-100">{generatedPrompt}</p>
             </div>
-          ) : (
-            <div className="empty-state">No generated previews yet. Start automation to render your first draft video.</div>
-          )}
-        </SectionCard>
+          ) : null}
+
+          {askAiResult?.script ? (
+            <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-sm font-medium text-white">AI script preview</p>
+              <p className="mt-3 text-sm leading-6 text-slate-300">{String(askAiResult.script).slice(0, 420)}...</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="section-surface space-y-5">
+          <div className="flex items-center gap-3">
+            <MessageSquareShare className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="text-xl font-semibold text-white">Telegram Settings Panel</h3>
+              <p className="text-sm text-slate-400">Configure alert delivery for upload success, errors, and live pipeline progress.</p>
+            </div>
+          </div>
+
+          <label className="space-y-2">
+            <span className="text-sm text-slate-300">Bot token</span>
+            <input
+              className="input-surface w-full"
+              value={settingsForm?.telegramBotToken || ""}
+              onChange={(event) => setSettingsForm((prev) => ({ ...prev, telegramBotToken: event.target.value }))}
+              placeholder="Telegram bot token"
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm text-slate-300">Chat ID</span>
+            <input
+              className="input-surface w-full"
+              value={settingsForm?.telegramChatId || ""}
+              onChange={(event) => setSettingsForm((prev) => ({ ...prev, telegramChatId: event.target.value }))}
+              placeholder="Telegram chat id"
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ToggleCard label="Notifications" checked={settingsForm?.enableNotifications} onChange={(checked) => setSettingsForm((prev) => ({ ...prev, enableNotifications: checked }))} />
+            <ToggleCard label="YouTube Upload" checked={settingsForm?.enableUpload} onChange={(checked) => setSettingsForm((prev) => ({ ...prev, enableUpload: checked }))} />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                dashboard.saveRuntimeSettings({
+                  default_language: language,
+                  default_mode: settingsForm.defaultMode,
+                  enable_shorts: settingsForm.enableShorts,
+                  enable_long_video: settingsForm.enableLongVideo,
+                  enable_upload: settingsForm.enableUpload,
+                  enable_notifications: settingsForm.enableNotifications,
+                  tts_provider: settingsForm.ttsProvider,
+                  preferred_news_sources: settingsForm.preferredNewsSources,
+                  short_video_duration: settingsForm.shortVideoDuration,
+                  long_video_duration: settingsForm.longVideoDuration,
+                  telegram_bot_token: settingsForm.telegramBotToken,
+                  telegram_chat_id: settingsForm.telegramChatId,
+                  prompt_seed: settingsForm.promptSeed,
+                  prompt_style: settingsForm.promptStyle,
+                })
+              }
+              disabled={actionState.saveSettings}
+              className="start-button"
+            >
+              {actionState.saveSettings ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Settings2 className="h-5 w-5" />}
+              Save Settings
+            </button>
+            <button type="button" onClick={dashboard.sendTelegramTest} disabled={actionState.telegram} className="ghost-button">
+              {actionState.telegram ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <MessageSquareShare className="h-4 w-4" />}
+              Send Test Alert
+            </button>
+          </div>
+
+          {latestLinks.length ? (
+            <div className="rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 p-4">
+              <p className="text-sm font-medium text-emerald-200">Latest uploaded links</p>
+              <div className="mt-3 space-y-2">
+                {latestLinks.map((item) => (
+                  <a key={item.url} href={item.url} target="_blank" rel="noreferrer" className="block text-sm text-white underline decoration-cyan-400/50 underline-offset-4">
+                    {item.label}: {item.url}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <SectionCard
-          title="Live News Feed"
-          description="Fresh stories feeding the current dashboard queue."
-          actions={
-            <button type="button" onClick={() => onNavigate("/dashboard/news")} className="ghost-button">
-              View all
-            </button>
-          }
-        >
-          <NewsList items={news.slice(0, 3)} loading={loading.news && !news.length} compact />
-        </SectionCard>
-
-        <SectionCard
-          title="Live Logs"
-          description="Recent pipeline activity with realtime operational visibility."
-          actions={
-            <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs uppercase tracking-[0.18em] text-slate-400">
-              {statusLoading ? "Refreshing" : "Streaming"}
+        <div className="section-surface">
+          <div className="mb-4 flex items-center gap-3">
+            <Bot className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="text-xl font-semibold text-white">Queue Status Panel</h3>
+              <p className="text-sm text-slate-400">One job runs at a time. New clicks wait safely in FIFO order.</p>
             </div>
-          }
-        >
-          <LogsPanel logs={logs.slice(-12)} />
-        </SectionCard>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatusTile label="Running Job" value={queue.current_job ? queue.current_job.mode : "None"} tone="amber" />
+            <StatusTile label="Queued Jobs" value={String(queue.queue_length || 0)} tone="emerald" />
+            <StatusTile label="Last Result" value={status?.failed ? "Failed" : status?.status === "completed" ? "Completed" : "Waiting"} tone={status?.failed ? "rose" : "emerald"} />
+          </div>
+          <div className="mt-5 space-y-3">
+            {queue.current_job ? <QueueCard job={queue.current_job} title="Now running" /> : null}
+            {(queue.queued_jobs || []).slice(0, 5).map((job) => (
+              <QueueCard key={job.id} job={job} title={`Queued #${job.position}`} queued />
+            ))}
+            {!queue.current_job && !(queue.queued_jobs || []).length ? <div className="empty-state">No jobs in queue.</div> : null}
+          </div>
+        </div>
+
+        <div className="section-surface">
+          <div className="mb-4 flex items-center gap-3">
+            <Newspaper className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="text-xl font-semibold text-white">News Section</h3>
+              <p className="text-sm text-slate-400">Latest sports stories feeding the prompt and script generation flow.</p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {news.length ? news.map((item) => <NewsCard key={item.id} item={item} />) : <div className="empty-state md:col-span-2">No news cards available yet.</div>}
+          </div>
+        </div>
+
+        <div className="section-surface">
+          <div className="mb-4 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="text-xl font-semibold text-white">Video Status & Notifications</h3>
+              <p className="text-sm text-slate-400">Realtime processing, completion, failures, and operational trace.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatusTile label="Processing" value={status?.running ? "Active" : "Idle"} tone="amber" />
+            <StatusTile label="Completed" value={status?.status === "completed" ? "Yes" : "No"} tone="emerald" />
+            <StatusTile label="Failed" value={status?.failed ? "Yes" : "No"} tone="rose" />
+          </div>
+          <div className="mt-5 space-y-3">
+            {(status?.notifications || []).slice().reverse().slice(0, 5).map((item) => (
+              <div key={item.id} className="rounded-[18px] border border-white/10 bg-white/[0.03] p-3 text-sm text-slate-200">
+                {item.message}
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 terminal-panel max-h-[360px] space-y-3">
+            {logs.slice(-14).reverse().map((item) => (
+              <div key={item.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{item.timestampLabel}</p>
+                <p className={`mt-1 text-xs uppercase tracking-[0.18em] ${item.level === "error" ? "text-rose-300" : item.level === "success" ? "text-emerald-300" : "text-cyan-300"}`}>
+                  {item.level}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-200">{item.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="section-surface space-y-5">
+          <div className="flex items-center gap-3">
+            <Settings2 className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="text-xl font-semibold text-white">Settings Page</h3>
+              <p className="text-sm text-slate-400">Control video lengths, voice provider, API order, and prompt behavior.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm text-slate-300">Short video duration</span>
+              <input className="input-surface w-full" type="number" value={settingsForm?.shortVideoDuration || 45} onChange={(event) => setSettingsForm((prev) => ({ ...prev, shortVideoDuration: Number(event.target.value) }))} />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm text-slate-300">Long video duration</span>
+              <input className="input-surface w-full" type="number" value={settingsForm?.longVideoDuration || 180} onChange={(event) => setSettingsForm((prev) => ({ ...prev, longVideoDuration: Number(event.target.value) }))} />
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm text-slate-300">Voice selection</span>
+              <select className="input-surface w-full" value={settingsForm?.ttsProvider || "gtts"} onChange={(event) => setSettingsForm((prev) => ({ ...prev, ttsProvider: event.target.value }))}>
+                {runtime.ttsOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm text-slate-300">Prompt style</span>
+              <select className="input-surface w-full" value={settingsForm?.promptStyle || "breaking"} onChange={(event) => setSettingsForm((prev) => ({ ...prev, promptStyle: event.target.value }))}>
+                <option value="breaking">Breaking</option>
+                <option value="analysis">Analysis</option>
+                <option value="hype">Hype</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="space-y-2">
+            <span className="text-sm text-slate-300">API selection / fallback order</span>
+            <input
+              className="input-surface w-full"
+              value={(settingsForm?.preferredNewsSources || []).join(", ")}
+              onChange={(event) => setSettingsForm((prev) => ({ ...prev, preferredNewsSources: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) }))}
+              placeholder="cricapi, newsapi, fallback"
+            />
+          </label>
+
+          <label className="space-y-2">
+            <span className="text-sm text-slate-300">Prompt seed</span>
+            <textarea className="input-surface min-h-[100px] w-full resize-y" value={settingsForm?.promptSeed || ""} onChange={(event) => setSettingsForm((prev) => ({ ...prev, promptSeed: event.target.value }))} placeholder="Add channel tone, CTA style, thumbnail preferences, or content guardrails..." />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ToggleCard label="Generate Shorts" checked={settingsForm?.enableShorts} onChange={(checked) => setSettingsForm((prev) => ({ ...prev, enableShorts: checked }))} />
+            <ToggleCard label="Generate Long Video" checked={settingsForm?.enableLongVideo} onChange={(checked) => setSettingsForm((prev) => ({ ...prev, enableLongVideo: checked }))} />
+          </div>
+        </div>
+
+        <div className="section-surface space-y-5">
+          <div className="flex items-center gap-3">
+            <MicVocal className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h3 className="text-xl font-semibold text-white">Quality Upgrade Notes</h3>
+              <p className="text-sm text-slate-400">Practical improvements already supported by this architecture.</p>
+            </div>
+          </div>
+
+          <QualityPoint title="Better Telugu voice">
+            Put `edge` or `coqui` first in voice selection for a more natural Telugu path. The backend still falls back automatically through ElevenLabs, Azure, OpenAI, and gTTS.
+          </QualityPoint>
+          <QualityPoint title="Improved visuals">
+            News cards now preserve source images, and the pipeline passes highlight-specific visual queries into video generation for more relevant scenes.
+          </QualityPoint>
+          <QualityPoint title="Thumbnail direction">
+            Use bold 2-4 word Telugu or English text, one key athlete/team image, and high-contrast red/yellow accents. The backend now exposes topic-aware prompt seed support.
+          </QualityPoint>
+          <QualityPoint title="Hosting strategy">
+            Frontend can go to Vercel or Netlify. FastAPI backend fits Railway or Render. Media artifacts should move to Cloudinary, Supabase Storage, or Firebase Storage when you outgrow local disk.
+          </QualityPoint>
+        </div>
       </section>
     </div>
   );
 }
 
-function InfoTile({ label, value }) {
+function MetricCard({ label, value, icon: Icon }) {
   return (
-    <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-medium text-white">{value}</p>
+    <div className="metric-tile">
+      <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/10 p-3 w-fit">
+        <Icon className="h-5 w-5 text-cyan-200" />
+      </div>
+      <p className="mt-4 text-sm text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
     </div>
   );
 }
 
-function StatusChip({ state }) {
+function StatusRow({ label, active, success = false, danger = false }) {
+  const tone = danger ? "text-rose-300" : success ? "text-emerald-300" : active ? "text-amber-300" : "text-slate-400";
+  return (
+    <div className="flex items-center justify-between rounded-[18px] border border-white/10 bg-white/[0.03] px-4 py-3">
+      <span className="text-sm text-slate-300">{label}</span>
+      <span className={`text-sm font-medium ${tone}`}>{active ? "Yes" : "No"}</span>
+    </div>
+  );
+}
+
+function NewsCard({ item }) {
+  return (
+    <article className="news-item">
+      {item.image ? <img src={item.image} alt={item.title} className="h-36 w-full rounded-[20px] object-cover md:w-40" /> : <div className="news-image-fallback"><Newspaper className="h-7 w-7 text-cyan-200" /></div>}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="chip chip-cyan">{item.category}</span>
+          <span className="chip">{item.source}</span>
+        </div>
+        <h4 className="mt-3 text-lg font-semibold text-white">{item.title}</h4>
+        <p className="mt-2 text-sm leading-6 text-slate-400">{item.summary}</p>
+        <p className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">{item.publishedAt || "Latest feed"}</p>
+      </div>
+    </article>
+  );
+}
+
+function StatusTile({ label, value, tone }) {
   const styles = {
-    processing: "border-amber-400/20 bg-amber-500/10 text-amber-200",
-    uploaded: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
-    failed: "border-rose-400/20 bg-rose-500/10 text-rose-200",
+    amber: "border-amber-400/20 bg-amber-500/10 text-amber-200",
+    emerald: "border-emerald-400/20 bg-emerald-500/10 text-emerald-200",
+    rose: "border-rose-400/20 bg-rose-500/10 text-rose-200",
   };
-
-  return <span className={`rounded-full border px-3 py-1 ${styles[state]}`}>{state === "processing" ? "Processing" : state === "uploaded" ? "Uploaded" : "Failed"}</span>;
+  return (
+    <div className={`rounded-[20px] border p-4 ${styles[tone]}`}>
+      <p className="text-xs uppercase tracking-[0.18em]">{label}</p>
+      <p className="mt-2 text-lg font-semibold">{value}</p>
+    </div>
+  );
 }
 
-function getCompletion(status) {
-  if (status?.failed) {
-    return 82;
-  }
-  if (status?.status === "completed") {
-    return 100;
-  }
-  if (!status?.running) {
-    return status?.previewItems?.length ? 100 : 0;
-  }
-
-  const stage = String(status?.currentStage || status?.progressLabel || "").toLowerCase();
-  if (stage.includes("upload")) {
-    return 88;
-  }
-  if (stage.includes("video")) {
-    return 72;
-  }
-  if (stage.includes("image")) {
-    return 54;
-  }
-  if (stage.includes("voice")) {
-    return 36;
-  }
-  if (stage.includes("script")) {
-    return 18;
-  }
-  return 12;
+function ToggleCard({ label, checked, onChange }) {
+  return (
+    <button type="button" onClick={() => onChange(!checked)} className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4 text-left">
+      <p className="text-sm text-slate-300">{label}</p>
+      <p className={`mt-2 text-lg font-semibold ${checked ? "text-emerald-300" : "text-slate-400"}`}>{checked ? "Enabled" : "Disabled"}</p>
+    </button>
+  );
 }
 
-function getStageStates(status) {
-  const completion = getCompletion(status);
-  const failed = Boolean(status?.failed);
-
-  return {
-    script: completion >= 18 ? "completed" : "idle",
-    voice: completion >= 36 ? "completed" : completion >= 18 && status?.running ? "running" : "idle",
-    images: completion >= 54 ? "completed" : completion >= 36 && status?.running ? "running" : "idle",
-    video: failed ? "failed" : completion >= 72 ? "completed" : completion >= 54 && status?.running ? "running" : "idle",
-    upload: failed ? "failed" : completion >= 88 ? (status?.running ? "running" : completion === 100 ? "completed" : "running") : "idle",
-  };
+function ToastStack({ items, onDismiss }) {
+  return (
+    <div className="fixed right-4 top-4 z-50 space-y-3">
+      {items.map((item) => (
+        <button key={item.id} type="button" onClick={() => onDismiss(item.id)} className={`toast-card ${item.tone === "error" ? "toast-card-error" : item.tone === "success" ? "toast-card-success" : "toast-card-info"}`}>
+          {item.message}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-function getStatusTone(status) {
-  if (status?.failed) {
-    return { label: "Error", dotClass: "status-dot--failed" };
-  }
-  if (status?.running) {
-    return { label: "Live", dotClass: "status-dot--running" };
-  }
-  return { label: "Idle", dotClass: "status-dot--idle" };
+function QualityPoint({ title, children }) {
+  return (
+    <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-sm font-semibold text-white">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-400">{children}</p>
+    </div>
+  );
 }
 
-function getPipelinePillClass(state) {
-  const base = "rounded-full border px-3 py-1 text-xs font-medium";
-  if (state === "completed") {
-    return `${base} border-emerald-400/20 bg-emerald-500/10 text-emerald-200`;
-  }
-  if (state === "running") {
-    return `${base} border-amber-400/20 bg-amber-500/10 text-amber-200`;
-  }
-  if (state === "failed") {
-    return `${base} border-rose-400/20 bg-rose-500/10 text-rose-200`;
-  }
-  return `${base} border-white/10 bg-white/[0.04] text-slate-400`;
+function QueueCard({ job, title, queued = false }) {
+  return (
+    <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <span className={`chip ${queued ? "" : "chip-amber"}`}>{job.status}</span>
+      </div>
+      <p className="mt-2 text-sm text-slate-300">Mode: {job.mode}</p>
+      <p className="mt-1 text-sm text-slate-400">Language: {job.language === "te" ? "Telugu" : "English"}</p>
+      {job.current_stage ? <p className="mt-1 text-sm text-slate-400">Stage: {job.current_stage}</p> : null}
+      {job.prompt ? <p className="mt-2 text-sm text-slate-500">{job.prompt}</p> : null}
+    </div>
+  );
 }
 
-function getNodeClass(state) {
-  if (state === "completed") {
-    return "pipeline-node border-emerald-400/20 bg-emerald-500/10 text-emerald-200";
-  }
-  if (state === "running") {
-    return "pipeline-node border-amber-400/20 bg-amber-500/10 text-amber-200";
-  }
-  if (state === "failed") {
-    return "pipeline-node border-rose-400/20 bg-rose-500/10 text-rose-200";
-  }
-  return "pipeline-node border-white/10 bg-white/[0.04] text-slate-400";
-}
-
-function renderStageIcon(state) {
-  if (state === "completed") {
-    return <CheckCircle2 className="h-4 w-4" />;
-  }
-  if (state === "running") {
-    return <LoaderCircle className="h-4 w-4 animate-spin" />;
-  }
-  if (state === "failed") {
-    return <AlertTriangle className="h-4 w-4" />;
-  }
-  return <UploadCloud className="h-4 w-4" />;
-}
-
-function truncateText(value, maxLength) {
-  if (!value || value.length <= maxLength) {
-    return value;
-  }
-  return `${value.slice(0, maxLength - 1)}…`;
+function getProgress(status) {
+  if (status?.failed) return 100;
+  if (status?.status === "completed") return 100;
+  const stage = String(status?.currentStage || "").toLowerCase();
+  if (stage.includes("started")) return 10;
+  if (stage.includes("news")) return 22;
+  if (stage.includes("script")) return 38;
+  if (stage.includes("voice")) return 58;
+  if (stage.includes("video")) return 82;
+  if (stage.includes("upload")) return 94;
+  return status?.running ? 8 : 0;
 }

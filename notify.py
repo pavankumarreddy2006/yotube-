@@ -2,26 +2,29 @@ from __future__ import annotations
 
 import requests
 
+from runtime import get_runtime_settings
 from settings import settings
 from utils import get_logger
 
 logger = get_logger(__name__)
 
 STAGE_LABELS = {
-    "started": "STARTED",
-    "news_fetched": "NEWS FETCHED",
-    "script_ready": "SCRIPT READY",
-    "voice_generated": "VOICE GENERATED",
-    "video_created": "VIDEO CREATED",
-    "uploading": "UPLOADING",
-    "upload_success": "UPLOAD SUCCESS",
-    "all_done": "ALL DONE",
-    "error": "ERROR OCCURRED",
+    "started": "🚀 Video Started",
+    "news_fetched": "📰 News Fetched",
+    "script_ready": "⚙️ Script Generation",
+    "voice_generated": "🎙️ Voice Generation",
+    "video_created": "🎬 Video Rendering",
+    "uploading": "📤 YouTube Upload",
+    "upload_success": "✅ Upload Success",
+    "all_done": "🎉 Automation Completed",
+    "error": "❌ Error Occurred",
 }
 
 
 def _telegram_url(method: str) -> str:
-    return f"https://api.telegram.org/bot{settings.telegram_bot_token}/{method}"
+    runtime = get_runtime_settings()
+    token = runtime.telegram_bot_token or settings.telegram_bot_token
+    return f"https://api.telegram.org/bot{token}/{method}"
 
 
 def _log_telegram_response(response: requests.Response, action: str) -> None:
@@ -30,7 +33,8 @@ def _log_telegram_response(response: requests.Response, action: str) -> None:
 
 
 def validate_telegram_config() -> None:
-    if not settings.has_telegram:
+    runtime = get_runtime_settings()
+    if not (runtime.has_telegram or settings.has_telegram):
         raise RuntimeError("Telegram credentials missing. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.")
 
     logger.info("Validating Telegram bot configuration.")
@@ -43,7 +47,8 @@ def validate_telegram_config() -> None:
 
 
 def send_telegram(message: str) -> None:
-    if not settings.enable_notifications:
+    runtime = get_runtime_settings()
+    if not runtime.enable_notifications:
         logger.info("Telegram notifications disabled.")
         return
 
@@ -52,7 +57,7 @@ def send_telegram(message: str) -> None:
     response = requests.post(
         _telegram_url("sendMessage"),
         json={
-            "chat_id": str(settings.telegram_chat_id),
+            "chat_id": str(runtime.telegram_chat_id or settings.telegram_chat_id),
             "text": str(message),
         },
         timeout=20,
@@ -72,7 +77,7 @@ def send_telegram(message: str) -> None:
 
 def send_stage_notification(stage: str, detail: str = "") -> None:
     prefix = STAGE_LABELS.get(stage, stage.upper())
-    message = prefix if not detail else f"{prefix}\n{detail}"
+    message = prefix if not detail else f"{prefix}\n\n{detail}"
     try:
         send_telegram(message)
     except Exception as exc:  # noqa: BLE001
@@ -80,7 +85,7 @@ def send_stage_notification(stage: str, detail: str = "") -> None:
 
 
 def send_upload_success(title: str, youtube_link: str, *, variant: str) -> None:
-    send_stage_notification("upload_success", f"{variant}\nTitle: {title}\nLink: {youtube_link}")
+    send_stage_notification("upload_success", f"Variant: {variant}\nTitle: {title}\nLink: {youtube_link}")
 
 
 def send_upload_failure(step_name: str, error_details: str) -> None:

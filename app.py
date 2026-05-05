@@ -1,19 +1,25 @@
 from __future__ import annotations
 
-import threading
+import asyncio
+import hashlib
+import json
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from content import generate_custom_script, normalize_language
+from events import get_event_history, latest_event_id
 from main import PIPELINE_LOCK, _cleanup_old_artifacts, run_pipeline_logic
+from notify import send_telegram
+from queue_manager import job_queue
+from runtime import get_runtime_settings, save_runtime_settings
 from settings import BASE_DIR, OUTPUT_DIR, settings
 from utils import get_logger, load_json, setup_logging
 
@@ -35,12 +41,36 @@ SCHEDULER_STARTED = False
 class AutomationRunRequest(BaseModel):
     language: str | None = None
     mode: str | None = "full"
+    prompt: str = ""
 
 
-class AskAIRequest(BaseModel):
-    topic: str
+class PromptRequest(BaseModel):
+    topic: str = ""
     language: str | None = None
-    generate_video: bool = False
+    mode: str = "full"
+
+
+class TelegramTestRequest(BaseModel):
+    message: str = "Telegram test from AI YouTube Automation"
+
+
+class RuntimeSettingsUpdateRequest(BaseModel):
+    default_language: str | None = None
+    default_mode: str | None = None
+    enable_shorts: bool | None = None
+    enable_long_video: bool | None = None
+    enable_upload: bool | None = None
+    enable_notifications: bool | None = None
+    tts_provider: str | None = None
+    preferred_news_sources: list[str] | None = None
+    preferred_visual_sources: list[str] | None = None
+    short_video_duration: int | None = Field(default=None, ge=20, le=180)
+    long_video_duration: int | None = Field(default=None, ge=60, le=1200)
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    prompt_seed: str | None = None
+    prompt_style: str | None = None
+    auto_mode_label: str | None = None
 
 
 def _read_json(path: Path, default: Any = None) -> Any:
@@ -59,9 +89,7 @@ def _latest_work_dir() -> Path | None:
         if candidate.exists():
             return candidate
     directories = [item for item in OUTPUT_DIR.iterdir() if item.is_dir()]
-    if not directories:
-        return None
-    return max(directories, key=lambda item: item.stat().st_mtime)
+    return max(directories, key=lambda item: item.stat().st_mtime) if directories else None
 
 
 def _latest_content_payload() -> dict[str, Any]:
@@ -76,14 +104,14 @@ def _as_mapping(value: Any) -> dict[str, Any]:
 
 
 def _topic_value(value: Any, key: str, default: Any = "") -> Any:
-    if isinstance(value, dict):
-        return value.get(key, default)
-    return default
+    return value.get(key, default) if isinstance(value, dict) else default
 
 
 def _to_output_url(file_path: str | None) -> str:
     if not file_path:
         return ""
+    if str(file_path).startswith(("http://", "https://")):
+        return str(file_path)
     candidate = Path(str(file_path))
     if not candidate.exists():
         return ""
@@ -91,8 +119,7 @@ def _to_output_url(file_path: str | None) -> str:
         relative_path = candidate.resolve().relative_to(OUTPUT_DIR.resolve())
     except Exception:
         return ""
-    web_path = str(relative_path).replace("\\", "/")
-    return f"/output/{web_path}"
+    return f"/output/{str(relative_path).replace(chr(92), '/')}"
 
 
 def _read_log_text() -> str:
@@ -105,30 +132,20 @@ def _read_log_text() -> str:
 def _load_logs() -> list[dict[str, str]]:
     status = _read_json(STATUS_FILE, default={}) or {}
     if status.get("live_logs"):
-        return status["live_logs"]
-
+        return status["live_logs"][-150:]
     items: list[dict[str, str]] = []
     for index, raw_line in enumerate(_read_log_text().splitlines()):
         line = raw_line.strip()
         if not line:
             continue
         parts = line.split(" - ", 2)
-        if len(parts) == 3:
-            timestamp, level, message = parts
-        else:
-            timestamp, level, message = "", "INFO", line
-        items.append(
-            {
-                "id": f"log-{index}",
-                "timestamp": timestamp,
-                "level": level.lower(),
-                "message": message,
-            }
-        )
-    return items[-120:]
+        timestamp, level, message = (parts if len(parts) == 3 else ("", "INFO", line))
+        items.append({"id": f"log-{index}", "timestamp": timestamp, "level": level.lower(), "message": message})
+    return items[-150:]
 
 
 def _load_status() -> dict[str, Any]:
+    runtime = get_runtime_settings()
     status = _read_json(STATUS_FILE, default={}) or {}
     latest_run = _latest_run_payload()
     latest_content = _latest_content_payload()
@@ -140,31 +157,31 @@ def _load_status() -> dict[str, Any]:
     status.setdefault("status", "Idle")
     status.setdefault("current_task", "Waiting for next run")
     status.setdefault("last_run_time", "")
-    status.setdefault("language", latest_run.get("language", settings.default_language))
+    status.setdefault("language", latest_run.get("language", runtime.default_language))
     status.setdefault("language_label", "Telugu" if status["language"] == "te" else "English")
-    status["thumbnail_url"] = _to_output_url(status.get("thumbnail_url")) or _to_output_url(latest_run.get("thumbnail"))
-    status.setdefault("thumbnail_text", content.get("thumbnail_text", ""))
+    status.setdefault("mode", latest_run.get("mode", runtime.default_mode))
     status.setdefault("notifications", [])
-    if not status.get("preview_items"):
-        preview_items: list[dict[str, str]] = []
-        if latest_run.get("video"):
-            preview_items.append({"label": "Latest Video Preview", "url": _to_output_url(latest_run.get("video")), "variant": "short"})
-        if latest_run.get("shorts_video"):
-            preview_items.append({"label": "Shorts Preview", "url": _to_output_url(latest_run.get("shorts_video")), "variant": "short"})
-        if latest_run.get("long_video"):
-            preview_items.append({"label": "Long Video Preview", "url": _to_output_url(latest_run.get("long_video")), "variant": "long"})
-        status["preview_items"] = [item for item in preview_items if item.get("url")]
-    if not status.get("youtube_links"):
-        youtube_links: list[dict[str, str]] = []
-        if str(latest_run.get("upload", "")).startswith("https://"):
-            youtube_links.append({"label": "Latest Upload", "url": latest_run["upload"]})
-        if str(latest_run.get("shorts_upload", "")).startswith("https://"):
-            youtube_links.append({"label": "Shorts", "url": latest_run["shorts_upload"]})
-        if str(latest_run.get("long_upload", "")).startswith("https://"):
-            youtube_links.append({"label": "Long Video", "url": latest_run["long_upload"]})
-        status["youtube_links"] = youtube_links
+    status["thumbnail_url"] = _to_output_url(status.get("thumbnail_url")) or _to_output_url(latest_run.get("thumbnail_url")) or _to_output_url(latest_run.get("thumbnail"))
+    status.setdefault("thumbnail_text", content.get("thumbnail_text", ""))
+
+    preview_items: list[dict[str, str]] = []
+    if latest_run.get("shorts_video_url") or latest_run.get("shorts_video"):
+        preview_items.append({"label": "Shorts Preview", "url": _to_output_url(latest_run.get("shorts_video_url") or latest_run.get("shorts_video")), "variant": "short"})
+    if latest_run.get("long_video_url") or latest_run.get("long_video"):
+        preview_items.append({"label": "Long Video Preview", "url": _to_output_url(latest_run.get("long_video_url") or latest_run.get("long_video")), "variant": "long"})
+    status["preview_items"] = [item for item in preview_items if item.get("url")]
+
+    links: list[dict[str, str]] = []
+    if str(latest_run.get("shorts_upload", "")).startswith("https://"):
+        links.append({"label": "Shorts", "url": latest_run["shorts_upload"]})
+    if str(latest_run.get("long_upload", "")).startswith("https://"):
+        links.append({"label": "Long Video", "url": latest_run["long_upload"]})
+    status["youtube_links"] = links
+
     status.setdefault("selected_topic", _topic_value(selected_topic, "title", latest_run.get("title", "")))
     status.setdefault("selected_topic_summary", _topic_value(selected_topic, "summary", ""))
+    status["runtime"] = runtime.to_public_dict()
+    status["queue"] = job_queue.snapshot()
     return status
 
 
@@ -173,7 +190,6 @@ def _build_news_payload() -> dict[str, Any]:
     selected_topic = latest_content.get("selected_topic") or {}
     highlights = latest_content.get("highlights", []) or []
     items = []
-
     for index, item in enumerate(highlights[:10]):
         payload = _as_mapping(item)
         items.append(
@@ -189,7 +205,6 @@ def _build_news_payload() -> dict[str, Any]:
                 "category": payload.get("category", "Sports"),
             }
         )
-
     if not items and selected_topic:
         items.append(
             {
@@ -197,33 +212,60 @@ def _build_news_payload() -> dict[str, Any]:
                 "title": _topic_value(selected_topic, "title", "Headline unavailable"),
                 "summary": _topic_value(selected_topic, "summary", "No summary available."),
                 "source": _topic_value(selected_topic, "source", "system"),
-                "image": _topic_value(selected_topic, "image") or _topic_value(selected_topic, "image_url") or _topic_value(selected_topic, "thumbnail") or "",
+                "image": _topic_value(selected_topic, "image") or _topic_value(selected_topic, "image_url") or "",
                 "trending": _topic_value(selected_topic, "is_trending", False),
                 "published_at": _topic_value(selected_topic, "published_at", ""),
-                "topic": _topic_value(selected_topic, "topic", _topic_value(selected_topic, "category", "sports")),
+                "topic": _topic_value(selected_topic, "topic", "sports"),
                 "category": _topic_value(selected_topic, "category", "Sports"),
             }
         )
     return {"items": items}
 
 
-def _launch_pipeline(mode: str, language: str) -> dict[str, str]:
-    status = _load_status()
-    if status.get("running") or PIPELINE_LOCK.locked():
-        raise HTTPException(status_code=409, detail="Automation is already running")
-    worker = threading.Thread(
-        target=run_pipeline_logic,
-        kwargs={"mode": mode, "language": language},
-        daemon=True,
-        name=f"pipeline-{mode}-{language}",
+def _build_prompt(topic: str, *, language: str, mode: str) -> dict[str, str]:
+    runtime = get_runtime_settings()
+    clean_topic = (topic or _load_status().get("selected_topic") or "Latest cricket breaking news").strip()
+    clean_mode = (mode or runtime.default_mode or "full").strip().lower()
+    duration = runtime.short_video_duration if clean_mode == "short" else runtime.long_video_duration
+    language_label = "Telugu" if language == "te" else "English"
+    structure = "Hook -> Fast Context -> 3 Key Highlights -> Punchy Conclusion + CTA" if clean_mode == "short" else "Hook -> Context -> Detailed Highlights -> Analysis -> Conclusion + CTA"
+    prompt = "\n".join(
+        [
+            f"Create a {language_label} YouTube {'Short' if clean_mode == 'short' else 'long-form video'} script about '{clean_topic}'.",
+            f"Target duration: about {duration} seconds.",
+            f"Tone: {runtime.prompt_style} sports-news delivery.",
+            f"Structure: {structure}.",
+            "Include:",
+            "1. A strong attention-grabbing opening hook.",
+            "2. Clear context so the viewer understands why the story matters.",
+            "3. Key highlights broken into clean, high-retention points.",
+            "4. A conclusion that summarizes the takeaway and adds a subscribe/follow CTA.",
+            "5. Scene-by-scene visual cues and a thumbnail text idea.",
+            f"Extra guidance: {runtime.prompt_seed or 'Focus on cricket-first storytelling with crisp updates.'}",
+        ]
     )
-    worker.start()
-    return {"status": "pipeline started", "mode": mode, "language": language}
+    return {"topic": clean_topic, "mode": clean_mode, "language": language, "prompt": prompt}
+
+
+def _dashboard_payload() -> dict[str, Any]:
+    return {
+        "status": _load_status(),
+        "news": _build_news_payload(),
+        "logs": {"items": _load_logs()},
+        "runtime": get_runtime_settings().to_public_dict(),
+        "events": get_event_history(),
+    }
+
+
+def _launch_pipeline(mode: str, language: str, prompt: str = "") -> dict[str, str]:
+    job = job_queue.enqueue(mode=mode, language=language, prompt=prompt)
+    return {"status": "queued", "mode": mode, "language": language, "job_id": job["id"]}
 
 
 def _scheduler_loop() -> None:
     while True:
         try:
+            runtime = get_runtime_settings()
             if settings.enable_daily_runner:
                 now = datetime.now()
                 current_time = now.strftime("%H:%M")
@@ -231,14 +273,7 @@ def _scheduler_loop() -> None:
                 already_ran_today = str(latest_run.get("completed_at", "")).startswith(now.strftime("%Y-%m-%d"))
                 status = _load_status()
                 if current_time == settings.daily_run_time and not status.get("running") and not already_ran_today:
-                    logger.info("Starting scheduled automation run for %s", settings.daily_run_time)
-                    worker = threading.Thread(
-                        target=run_pipeline_logic,
-                        kwargs={"mode": "full", "language": settings.default_language},
-                        daemon=True,
-                        name="scheduled-pipeline-runner",
-                    )
-                    worker.start()
+                    job_queue.enqueue(mode=runtime.default_mode, language=runtime.default_language, prompt="")
                     time.sleep(65)
                     continue
         except Exception as exc:
@@ -251,13 +286,13 @@ def _ensure_scheduler_started() -> None:
     if SCHEDULER_STARTED:
         return
     SCHEDULER_STARTED = True
-    worker = threading.Thread(target=_scheduler_loop, daemon=True, name="daily-automation-scheduler")
-    worker.start()
+    threading.Thread(target=_scheduler_loop, daemon=True, name="daily-automation-scheduler").start()
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
     _cleanup_old_artifacts()
+    job_queue.start(lambda job: run_pipeline_logic(job["mode"], job["language"], job.get("prompt", "")))
     _ensure_scheduler_started()
 
 
@@ -268,17 +303,20 @@ async def health() -> JSONResponse:
 
 @app.get("/config")
 async def get_config() -> JSONResponse:
+    runtime = get_runtime_settings()
     return JSONResponse(
         {
-            "default_language": normalize_language(settings.default_language),
+            "default_language": runtime.default_language,
             "daily_run_time": settings.daily_run_time,
             "daily_runner_enabled": settings.enable_daily_runner,
-            "languages": [
-                {"value": "te", "label": "Telugu"},
-                {"value": "en", "label": "English"},
-            ],
+            "languages": runtime.to_public_dict()["language_options"],
         }
     )
+
+
+@app.get("/dashboard-state")
+async def dashboard_state() -> JSONResponse:
+    return JSONResponse(_dashboard_payload())
 
 
 @app.get("/status")
@@ -286,33 +324,14 @@ async def get_status() -> JSONResponse:
     return JSONResponse(_load_status())
 
 
+@app.get("/queue")
+async def get_queue() -> JSONResponse:
+    return JSONResponse(job_queue.snapshot())
+
+
 @app.get("/news")
 async def get_news() -> JSONResponse:
     return JSONResponse(_build_news_payload())
-
-
-@app.get("/decision")
-async def get_decision() -> JSONResponse:
-    latest_content = _latest_content_payload()
-    scored_topic = _as_mapping(latest_content.get("scored_topic", {}))
-    selected_topic = latest_content.get("selected_topic") or {}
-    return JSONResponse(
-        {
-            "score": scored_topic.get("score", 0),
-            "action": scored_topic.get("decision", "HOLD"),
-            "reasons": scored_topic.get("reasons", []),
-            "selected_topic": _topic_value(selected_topic, "title", "No topic selected"),
-        }
-    )
-
-
-@app.get("/content")
-async def get_content() -> JSONResponse:
-    latest_content = _latest_content_payload()
-    content = latest_content.get("content", {}) or {}
-    payload = dict(content)
-    payload["preview_items"] = _load_status().get("preview_items", [])
-    return JSONResponse(payload)
 
 
 @app.get("/logs")
@@ -320,68 +339,102 @@ async def logs() -> JSONResponse:
     return JSONResponse({"items": _load_logs()})
 
 
+@app.get("/runtime-settings")
+async def get_runtime_config() -> JSONResponse:
+    return JSONResponse(get_runtime_settings().to_public_dict())
+
+
+@app.put("/runtime-settings")
+async def update_runtime_config(payload: RuntimeSettingsUpdateRequest) -> JSONResponse:
+    runtime = save_runtime_settings(payload.model_dump(exclude_none=True))
+    return JSONResponse(runtime.to_public_dict())
+
+
+@app.post("/telegram/test")
+async def telegram_test(payload: TelegramTestRequest) -> JSONResponse:
+    send_telegram(payload.message)
+    return JSONResponse({"status": "sent"})
+
+
+@app.post("/automation/prompt")
+async def generate_prompt(payload: PromptRequest) -> JSONResponse:
+    language = normalize_language(payload.language or get_runtime_settings().default_language)
+    return JSONResponse(_build_prompt(payload.topic, language=language, mode=payload.mode))
+
+
 @app.post("/automation/start")
 async def start_automation(run_request: AutomationRunRequest) -> JSONResponse:
-    language = normalize_language(run_request.language)
-    mode = run_request.mode or "full"
-    return JSONResponse(_launch_pipeline(mode, language))
+    runtime = get_runtime_settings()
+    language = normalize_language(run_request.language or runtime.default_language)
+    mode = (run_request.mode or runtime.default_mode or "full").strip().lower()
+    return JSONResponse(_launch_pipeline(mode, language, run_request.prompt))
 
 
 @app.post("/start")
 async def start_alias(run_request: AutomationRunRequest) -> JSONResponse:
-    language = normalize_language(run_request.language)
-    mode = run_request.mode or "full"
-    return JSONResponse(_launch_pipeline(mode, language))
+    return await start_automation(run_request)
 
 
 @app.post("/run")
 async def post_run(run_request: AutomationRunRequest) -> JSONResponse:
-    language = normalize_language(run_request.language)
-    mode = run_request.mode or "full"
-    return JSONResponse(_launch_pipeline(mode, language))
+    return await start_automation(run_request)
 
 
 @app.post("/upload")
 async def upload_latest() -> JSONResponse:
-    return JSONResponse(_launch_pipeline("upload_only", normalize_language(settings.default_language)))
+    runtime = get_runtime_settings()
+    return JSONResponse(_launch_pipeline("upload_only", normalize_language(runtime.default_language)))
 
 
 @app.post("/retry")
 async def retry_pipeline() -> JSONResponse:
     status = _load_status()
     language = normalize_language(status.get("language"))
-    return JSONResponse(_launch_pipeline("full", language))
+    return JSONResponse(_launch_pipeline(status.get("mode", "full"), language))
 
 
 @app.post("/ask-ai")
-async def ask_ai(payload: AskAIRequest) -> JSONResponse:
+async def ask_ai(payload: PromptRequest) -> JSONResponse:
     topic = payload.topic.strip()
     if not topic:
         raise HTTPException(status_code=400, detail="Topic is required")
-    result = generate_custom_script(
-        topic,
-        language=normalize_language(payload.language),
-        include_video_prompt=payload.generate_video,
-    )
+    result = generate_custom_script(topic, language=normalize_language(payload.language), include_video_prompt=True)
     return JSONResponse(result)
 
 
 @app.post("/ask")
-async def ask_alias(payload: AskAIRequest) -> JSONResponse:
+async def ask_alias(payload: PromptRequest) -> JSONResponse:
     return await ask_ai(payload)
 
 
-app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
+@app.get("/events")
+async def events(last_event_id: str | None = Header(default=None, alias="Last-Event-ID")) -> StreamingResponse:
+    async def event_stream():
+        history = get_event_history(last_event_id)
+        for item in history:
+            yield f"id: {item['id']}\nevent: {item['type']}\ndata: {json.dumps(item, default=str)}\n\n"
 
+        previous_hash = ""
+        while True:
+            payload = _dashboard_payload()
+            encoded = json.dumps(payload, default=str, sort_keys=True)
+            current_hash = hashlib.md5(encoded.encode("utf-8")).hexdigest()
+            if current_hash != previous_hash:
+                previous_hash = current_hash
+                event_id = latest_event_id()
+                yield f"id: {event_id}\nevent: snapshot\ndata: {encoded}\nretry: 2000\n\n"
+            await asyncio.sleep(2)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 if DIST_ASSETS_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(DIST_ASSETS_DIR)), name="frontend-static")
 
 
 def _frontend_build_missing() -> HTTPException:
-    return HTTPException(
-        status_code=503,
-        detail=f"React frontend build is missing. Expected file: {DIST_INDEX}",
-    )
+    return HTTPException(status_code=503, detail=f"React frontend build is missing. Expected file: {DIST_INDEX}")
 
 
 def _serve_frontend() -> FileResponse:
@@ -408,14 +461,17 @@ async def frontend_routes(full_path: str) -> FileResponse:
             "config",
             "status",
             "news",
-            "decision",
-            "content",
+            "logs",
             "run",
             "retry",
             "upload",
-            "logs",
             "automation",
             "ask-ai",
+            "runtime-settings",
+            "telegram",
+            "queue",
+            "events",
+            "dashboard-state",
             "output",
             "static",
         )

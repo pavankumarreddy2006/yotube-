@@ -31,6 +31,10 @@ class Settings:
     youtube_client_secret: str = os.getenv("YOUTUBE_CLIENT_SECRET", "")
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
+    cloudinary_cloud_name: str = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    cloudinary_api_key: str = os.getenv("CLOUDINARY_API_KEY", "")
+    cloudinary_api_secret: str = os.getenv("CLOUDINARY_API_SECRET", "")
+    cloudinary_folder: str = os.getenv("CLOUDINARY_FOLDER", "youtube-automation")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     openai_tts_model: str = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
@@ -90,6 +94,10 @@ class Settings:
     @property
     def has_telegram(self) -> bool:
         return bool(self.telegram_bot_token and self.telegram_chat_id)
+
+    @property
+    def has_cloudinary(self) -> bool:
+        return bool(self.cloudinary_cloud_name and self.cloudinary_api_key and self.cloudinary_api_secret)
 
 
 settings = Settings()

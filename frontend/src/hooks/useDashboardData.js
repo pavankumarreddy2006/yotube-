@@ -1,130 +1,117 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { askSportsAi, fetchConfig, fetchLogs, fetchNews, fetchStatus, startAutomation } from "../lib/api";
-import { normalizeConfig, normalizeLogs, normalizeNews, normalizeStatus } from "../lib/formatters";
-
-const STATUS_REFRESH_INTERVAL = 3000;
-const NEWS_REFRESH_INTERVAL = 10 * 60 * 1000;
+import { askSportsAi, fetchDashboardState, generatePrompt, startAutomation, testTelegram, updateRuntimeSettings } from "../lib/api";
+import { normalizeLogs, normalizeNews, normalizeRuntime, normalizeStatus } from "../lib/formatters";
 
 const initialState = {
   bootstrapLoading: true,
-  configLoading: true,
-  loading: {
-    news: true,
-  },
-  refreshState: {
-    news: false,
-    logs: false,
-  },
+  statusLoading: false,
   error: "",
   status: null,
   news: [],
   logs: [],
-  config: null,
+  runtime: null,
   language: "te",
-  languageTouched: false,
+  promptInput: "",
   askAiResult: null,
+  generatedPrompt: "",
+  toasts: [],
+  events: [],
   actionState: {
-    run: false,
-    askAi: false,
+    auto: false,
+    short: false,
+    long: false,
+    prompt: false,
+    saveSettings: false,
+    telegram: false,
   },
-  statusLoading: false,
 };
 
 export function useDashboardData() {
   const [state, setState] = useState(initialState);
   const mountedRef = useRef(true);
+  const seenNotificationsRef = useRef(new Set());
 
   function setPartial(updater) {
-    if (!mountedRef.current) {
-      return;
-    }
-    setState(updater);
-  }
-
-  async function loadStatusAndLogs({ background = false } = {}) {
-    setPartial((prev) => ({ ...prev, statusLoading: background, bootstrapLoading: background ? prev.bootstrapLoading : true, error: background ? prev.error : "" }));
-
-    try {
-      const [statusPayload, logsPayload] = await Promise.all([fetchStatus(), fetchLogs()]);
-      const status = normalizeStatus(statusPayload);
-      const logs = normalizeLogs(logsPayload);
-      setPartial((prev) => ({
-        ...prev,
-        bootstrapLoading: false,
-        statusLoading: false,
-        status,
-        logs,
-        language: prev.languageTouched ? prev.language : status.language || prev.language,
-      }));
-    } catch (error) {
-      setPartial((prev) => ({
-        ...prev,
-        bootstrapLoading: false,
-        statusLoading: false,
-        error: error.message || "Could not load dashboard status.",
-      }));
+    if (mountedRef.current) {
+      setState(updater);
     }
   }
 
-  async function loadNews({ background = false } = {}) {
+  function pushToast(message, tone = "info") {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     setPartial((prev) => ({
       ...prev,
-      loading: { ...prev.loading, news: background ? prev.loading.news : true },
-      refreshState: { ...prev.refreshState, news: background },
+      toasts: [...prev.toasts, { id, message, tone }].slice(-5),
     }));
+    window.setTimeout(() => {
+      setPartial((prev) => ({ ...prev, toasts: prev.toasts.filter((item) => item.id !== id) }));
+    }, 5000);
+  }
 
+  function applySnapshot(payload) {
+    const status = normalizeStatus(payload?.status || {});
+    const news = normalizeNews(payload?.news || {});
+    const logs = normalizeLogs(payload?.logs || {});
+    const runtime = normalizeRuntime(payload?.runtime || status.runtime || {});
+    const events = Array.isArray(payload?.events) ? payload.events : [];
+
+    for (const item of status.notifications || []) {
+      if (!seenNotificationsRef.current.has(item.id)) {
+        seenNotificationsRef.current.add(item.id);
+        const tone = status.failed || String(item.message || "").toLowerCase().includes("fail") || String(item.message || "").toLowerCase().includes("error")
+          ? "error"
+          : String(item.message || "").toLowerCase().includes("success") || String(item.message || "").toLowerCase().includes("completed")
+            ? "success"
+            : "info";
+        pushToast(item.message, tone);
+      }
+    }
+
+    setPartial((prev) => ({
+      ...prev,
+      bootstrapLoading: false,
+      statusLoading: false,
+      error: "",
+      status,
+      news,
+      logs,
+      runtime,
+      events,
+      language: prev.language || runtime.defaultLanguage || status.language || "te",
+      promptInput: prev.promptInput,
+    }));
+  }
+
+  async function refreshDashboard({ silent = false } = {}) {
+    setPartial((prev) => ({ ...prev, bootstrapLoading: silent ? prev.bootstrapLoading : true, statusLoading: silent, error: silent ? prev.error : "" }));
     try {
-      const payload = await fetchNews();
-      setPartial((prev) => ({
-        ...prev,
-        news: normalizeNews(payload),
-        loading: { ...prev.loading, news: false },
-        refreshState: { ...prev.refreshState, news: false },
-      }));
+      const payload = await fetchDashboardState();
+      applySnapshot(payload);
     } catch (error) {
       setPartial((prev) => ({
         ...prev,
-        loading: { ...prev.loading, news: false },
-        refreshState: { ...prev.refreshState, news: false },
-        error: prev.error || error.message || "Could not load sports news.",
+        bootstrapLoading: false,
+        statusLoading: false,
+        error: error.message || "Could not load dashboard data.",
       }));
     }
   }
 
-  async function loadConfig() {
-    try {
-      const payload = await fetchConfig();
-      setPartial((prev) => ({ ...prev, config: normalizeConfig(payload), configLoading: false }));
-    } catch {
-      setPartial((prev) => ({ ...prev, configLoading: false }));
-    }
-  }
-
-  async function refreshLogs() {
-    setPartial((prev) => ({ ...prev, refreshState: { ...prev.refreshState, logs: true } }));
-    try {
-      const payload = await fetchLogs();
-      setPartial((prev) => ({ ...prev, logs: normalizeLogs(payload), refreshState: { ...prev.refreshState, logs: false } }));
-    } catch (error) {
-      setPartial((prev) => ({ ...prev, refreshState: { ...prev.refreshState, logs: false }, error: error.message || "Could not refresh logs." }));
-    }
-  }
-
-  async function runAction(key, action) {
+  async function runAction(key, task, successMessage = "") {
     setPartial((prev) => ({
       ...prev,
       actionState: { ...prev.actionState, [key]: true },
       error: "",
     }));
-
     try {
-      await action();
-      await loadStatusAndLogs({ background: true });
+      await task();
+      if (successMessage) {
+        pushToast(successMessage, "success");
+      }
+      await refreshDashboard({ silent: true });
     } catch (error) {
-      setPartial((prev) => ({
-        ...prev,
-        error: error.message || "Action failed.",
-      }));
+      pushToast(error.message || "Action failed.", "error");
+      setPartial((prev) => ({ ...prev, error: error.message || "Action failed." }));
     } finally {
       setPartial((prev) => ({
         ...prev,
@@ -135,24 +122,24 @@ export function useDashboardData() {
 
   useEffect(() => {
     mountedRef.current = true;
-    void Promise.all([loadStatusAndLogs(), loadNews(), loadConfig()]);
+    void refreshDashboard();
+
+    const source = new EventSource("/events");
+    source.addEventListener("snapshot", (event) => {
+      try {
+        applySnapshot(JSON.parse(event.data));
+      } catch {
+        // ignore malformed SSE frames
+      }
+    });
+    source.onerror = () => {
+      // keep browser retry behavior
+    };
+
     return () => {
       mountedRef.current = false;
+      source.close();
     };
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void loadStatusAndLogs({ background: true });
-    }, STATUS_REFRESH_INTERVAL);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void loadNews({ background: true });
-    }, NEWS_REFRESH_INTERVAL);
-    return () => window.clearInterval(timer);
   }, []);
 
   return useMemo(() => {
@@ -166,16 +153,37 @@ export function useDashboardData() {
     return {
       ...state,
       metrics,
-      setLanguage: (language) => setState((prev) => ({ ...prev, language, languageTouched: true })),
-      runNow: () => runAction("run", () => startAutomation(state.language)),
+      setLanguage: (language) => setState((prev) => ({ ...prev, language })),
+      setPromptInput: (promptInput) => setState((prev) => ({ ...prev, promptInput })),
+      dismissToast: (id) => setState((prev) => ({ ...prev, toasts: prev.toasts.filter((item) => item.id !== id) })),
+      refreshStatus: () => refreshDashboard({ silent: true }),
+      runNow: () =>
+        runAction("auto", () => startAutomation({ language: state.language, mode: "full", prompt: state.promptInput }), "Automation started."),
+      runShort: () =>
+        runAction("short", () => startAutomation({ language: state.language, mode: "short", prompt: state.promptInput }), "Short video run started."),
+      runLong: () =>
+        runAction("long", () => startAutomation({ language: state.language, mode: "long", prompt: state.promptInput }), "Long video run started."),
+      generateAutoPrompt: () =>
+        runAction("prompt", async () => {
+          const payload = await generatePrompt({
+            topic: state.promptInput || state.status?.selectedTopic || state.news?.[0]?.title || "",
+            language: state.language,
+            mode: state.runtime?.defaultMode || "full",
+          });
+          setPartial((prev) => ({ ...prev, generatedPrompt: payload.prompt, promptInput: payload.topic }));
+        }),
+      saveRuntimeSettings: (payload) =>
+        runAction("saveSettings", async () => {
+          const runtime = await updateRuntimeSettings(payload);
+          setPartial((prev) => ({ ...prev, runtime: normalizeRuntime(runtime), language: runtime.default_language || prev.language }));
+        }, "Settings saved."),
+      sendTelegramTest: () =>
+        runAction("telegram", () => testTelegram("Test alert from AI YouTube Automation dashboard"), "Telegram test sent."),
       askAi: (payload) =>
-        runAction("askAi", async () => {
+        runAction("prompt", async () => {
           const result = await askSportsAi({ ...payload, language: state.language });
           setPartial((prev) => ({ ...prev, askAiResult: result }));
         }),
-      refreshStatus: () => loadStatusAndLogs({ background: true }),
-      refreshNews: () => loadNews({ background: true }),
-      refreshLogs,
     };
   }, [state]);
 }

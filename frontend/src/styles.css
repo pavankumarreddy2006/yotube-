@@ -217,6 +217,42 @@
   .pipeline-node {
     @apply flex min-w-[120px] items-center gap-3 rounded-[20px] border px-4 py-3 text-sm font-medium;
   }
+
+  .chip {
+    @apply rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-300;
+  }
+
+  .chip-cyan {
+    @apply border-cyan-400/20 bg-cyan-500/10 text-cyan-200;
+  }
+
+  .chip-amber {
+    @apply border-amber-400/20 bg-amber-500/10 text-amber-200;
+  }
+
+  .chip-emerald {
+    @apply border-emerald-400/20 bg-emerald-500/10 text-emerald-200;
+  }
+
+  .chip-rose {
+    @apply border-rose-400/20 bg-rose-500/10 text-rose-200;
+  }
+
+  .toast-card {
+    @apply block w-[min(360px,calc(100vw-2rem))] rounded-[20px] border px-4 py-3 text-left text-sm shadow-[0_18px_40px_rgba(2,6,23,0.35)];
+  }
+
+  .toast-card-info {
+    @apply border-cyan-400/20 bg-slate-950/95 text-cyan-100;
+  }
+
+  .toast-card-success {
+    @apply border-emerald-400/20 bg-slate-950/95 text-emerald-100;
+  }
+
+  .toast-card-error {
+    @apply border-rose-400/20 bg-slate-950/95 text-rose-100;
+  }
 }
 
 @layer utilities {

@@ -7,6 +7,7 @@ import requests
 from gtts import gTTS
 from openai import OpenAI
 
+from runtime import get_runtime_settings
 from settings import settings
 from utils import get_logger, retry
 
@@ -114,6 +115,35 @@ def _try_openai(text: str, output_path: str | Path) -> str:
     return str(output_path)
 
 
+def _try_edge_tts(text: str, output_path: str | Path, *, lang: str) -> str:
+    try:
+        import asyncio
+        import edge_tts
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"edge-tts not installed: {exc}") from exc
+
+    voice = "te-IN-ShrutiNeural" if lang == "te" else "en-US-JennyNeural"
+
+    async def generate() -> None:
+        communicate = edge_tts.Communicate(text, voice=voice)
+        await communicate.save(str(output_path))
+
+    asyncio.run(generate())
+    return str(output_path)
+
+
+def _try_coqui(text: str, output_path: str | Path) -> str:
+    try:
+        from TTS.api import TTS
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"Coqui TTS not installed: {exc}") from exc
+
+    model_name = "tts_models/multilingual/multi-dataset/xtts_v2"
+    tts = TTS(model_name=model_name, progress_bar=False)
+    tts.tts_to_file(text=text, file_path=str(output_path))
+    return str(output_path)
+
+
 def _try_gtts(text: str, output_path: str | Path, *, lang: str) -> str:
     tts = gTTS(text=text, lang=lang)
     tts.save(str(output_path))
@@ -122,7 +152,7 @@ def _try_gtts(text: str, output_path: str | Path, *, lang: str) -> str:
 
 def _provider_chain(preferred: str) -> Iterable[str]:
     seen: set[str] = set()
-    order = [preferred, "elevenlabs", "azure", "openai", "gtts"]
+    order = [preferred, "edge", "coqui", "elevenlabs", "azure", "openai", "gtts"]
     for provider in order:
         normalized = provider.strip().lower()
         if normalized and normalized not in seen:
@@ -132,14 +162,20 @@ def _provider_chain(preferred: str) -> Iterable[str]:
 
 def synthesize_voice(text: str, output_path: str | Path, *, lang: str = "te") -> str:
     output_path = str(output_path)
+    runtime = get_runtime_settings()
+    preferred_provider = runtime.tts_provider or settings.tts_provider
 
     def operation() -> str:
         last_error: Exception | None = None
-        for provider in _provider_chain(settings.tts_provider):
+        for provider in _provider_chain(preferred_provider):
             try:
                 logger.info("Trying TTS provider: %s", provider)
                 if provider == "elevenlabs":
                     return _try_elevenlabs(text, output_path)
+                if provider == "edge":
+                    return _try_edge_tts(text, output_path, lang=lang)
+                if provider == "coqui":
+                    return _try_coqui(text, output_path)
                 if provider == "azure":
                     return _try_azure(text, output_path, lang=lang)
                 if provider == "openai":

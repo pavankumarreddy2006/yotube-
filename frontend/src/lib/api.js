@@ -23,26 +23,35 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export function fetchStatus() {
-  return request("/status");
+export function fetchDashboardState() {
+  return request("/dashboard-state");
 }
 
-export function fetchNews() {
-  return request("/news");
-}
-
-export function fetchLogs() {
-  return request("/logs");
-}
-
-export function fetchConfig() {
-  return request("/config");
-}
-
-export function startAutomation(language) {
-  return request("/start", {
+export function startAutomation(payload) {
+  return request("/automation/start", {
     method: "POST",
-    body: JSON.stringify({ language, mode: "full" }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function generatePrompt(payload) {
+  return request("/automation/prompt", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateRuntimeSettings(payload) {
+  return request("/runtime-settings", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function testTelegram(message) {
+  return request("/telegram/test", {
+    method: "POST",
+    body: JSON.stringify({ message }),
   });
 }
 

@@ -7,6 +7,18 @@ New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
 $frontendOut = Join-Path $tmpDir "frontend.log"
 $frontendErr = Join-Path $tmpDir "frontend.err"
 
+foreach ($port in @(8000, 5173)) {
+    try {
+        $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+        foreach ($connection in $connections) {
+            if ($connection.OwningProcess) {
+                Stop-Process -Id $connection.OwningProcess -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } catch {
+    }
+}
+
 Start-Process -FilePath "powershell.exe" `
     -ArgumentList "-NoProfile", "-Command", "Set-Location '$PSScriptRoot'; python -m uvicorn app:app --host 127.0.0.1 --port 8000" `
     -WorkingDirectory $PSScriptRoot `
