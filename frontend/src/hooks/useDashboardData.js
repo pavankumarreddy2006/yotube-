@@ -23,6 +23,8 @@ const initialState = {
     prompt: false,
     saveSettings: false,
     telegram: false,
+    upload: false,
+    retry: false,
   },
 };
 
@@ -163,6 +165,10 @@ export function useDashboardData() {
         runAction("short", () => startAutomation({ language: state.language, mode: "short", prompt: state.promptInput }), "Short video run started."),
       runLong: () =>
         runAction("long", () => startAutomation({ language: state.language, mode: "long", prompt: state.promptInput }), "Long video run started."),
+      retryLatestRun: () =>
+        runAction("retry", () => startAutomation({ language: state.language, mode: state.status?.mode || state.runtime?.defaultMode || "full", prompt: state.promptInput }), "Retry started."),
+      uploadLatest: () =>
+        runAction("upload", () => startAutomation({ language: state.language, mode: "upload_only", prompt: state.promptInput }), "Upload job started."),
       generateAutoPrompt: () =>
         runAction("prompt", async () => {
           const payload = await generatePrompt({
@@ -172,6 +178,27 @@ export function useDashboardData() {
           });
           setPartial((prev) => ({ ...prev, generatedPrompt: payload.prompt, promptInput: payload.topic }));
         }),
+      createFromTrend: (item) => {
+        const title = item?.title || "";
+        if (!title) {
+          pushToast("Pick a sports story first.", "info");
+          return;
+        }
+        setPartial((prev) => ({ ...prev, promptInput: title }));
+        pushToast("Story added to the creator box.", "success");
+      },
+      useSportPrompt: (sport) => {
+        const label = sport?.label || sport;
+        if (!label) {
+          return;
+        }
+        setPartial((prev) => {
+          const current = (prev.promptInput || "").trim();
+          const nextPrompt = current ? `${label}: ${current}` : `${label} highlights and trending moments`;
+          return { ...prev, promptInput: nextPrompt };
+        });
+      },
+      notifySoon: (message) => pushToast(message, "info"),
       saveRuntimeSettings: (payload) =>
         runAction("saveSettings", async () => {
           const runtime = await updateRuntimeSettings(payload);

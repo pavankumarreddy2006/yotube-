@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/AppShell";
+import { useNavigation } from "./hooks/useNavigation";
 import DashboardPage from "./pages/DashboardPage";
 import { useDashboardData } from "./hooks/useDashboardData";
 
@@ -32,14 +33,15 @@ const navigation = [
 ];
 
 const quickActions = [
-  { key: "run", label: "Create new video", icon: Sparkles },
-  { key: "monitor", label: "Open AI studio", icon: Rocket },
-  { key: "trends", label: "Trending sports", icon: Flame },
+  { key: "run", label: "Create new video", icon: Sparkles, path: "/video-generator" },
+  { key: "monitor", label: "Open AI studio", icon: Rocket, path: "/ai-content" },
+  { key: "trends", label: "Trending sports", icon: Flame, path: "/sports-news" },
 ];
 
 export default function WebApplication() {
   const dashboard = useDashboardData();
-  const [currentPath, setCurrentPath] = useState("/dashboard");
+  const allowedPaths = navigation.map((item) => item.path);
+  const { pathname: currentPath, navigate } = useNavigation(allowedPaths);
   const [theme, setTheme] = useState("dark");
 
   const currentItem = useMemo(
@@ -102,7 +104,7 @@ export default function WebApplication() {
     <AppShell
       navigation={navigation}
       currentPath={currentPath}
-      onNavigate={setCurrentPath}
+      onNavigate={navigate}
       status={dashboard.status}
       language={dashboard.language}
       setLanguage={dashboard.setLanguage}

@@ -280,7 +280,7 @@ export function AppShell({
                         <p className="mt-1 text-xs text-[var(--text-secondary)]">Premium sports video studio</p>
                       </div>
                       <div className="mt-3 space-y-2">
-                        <button type="button" className="command-item">
+                        <button type="button" className="command-item" onClick={() => handleNavigate("/settings")}>
                           <UserCircle2 className="h-4 w-4" />
                           Profile
                         </button>
@@ -288,7 +288,7 @@ export function AppShell({
                           <Settings2 className="h-4 w-4" />
                           Workspace settings
                         </button>
-                        <button type="button" className="command-item">
+                        <button type="button" className="command-item" onClick={() => setProfileOpen(false)}>
                           <LogOut className="h-4 w-4" />
                           Sign out
                         </button>
@@ -472,7 +472,7 @@ function Sidebar({
                 <p className="text-sm font-semibold text-[var(--text-main)]">Keep the magic going</p>
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">More renders, deeper insights, and extra creative power.</p>
               </div>
-              <button type="button" className="primary-button h-10 px-4 text-xs">
+              <button type="button" className="primary-button h-10 px-4 text-xs" onClick={() => onNavigate("/analytics")}>
                 Unlock More
               </button>
             </>
@@ -558,7 +558,7 @@ function CommandDialog({ open, onClose, query, onQueryChange, items, onSelect, l
                   <p className="text-sm font-semibold text-[var(--text-main)]">Quick actions</p>
                   <div className="mt-3 space-y-2">
                     {quickActions.map((action) => (
-                      <button key={action.key} type="button" className="command-item">
+                      <button key={action.key} type="button" className="command-item" onClick={() => onSelect(action.path)}>
                         <action.icon className="h-4 w-4" />
                         <span>{action.label}</span>
                       </button>

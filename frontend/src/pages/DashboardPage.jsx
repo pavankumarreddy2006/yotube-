@@ -102,8 +102,12 @@ function DashboardHome({ dashboard, focus = "home" }) {
         <RecentVideosPanel videos={recentVideos} status={status} />
       </section>
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <UploadQueuePanel uploads={uploads} />
-        <TrendingSportsPanel trends={trends} />
+        <UploadQueuePanel
+          uploads={uploads}
+          onRetry={() => dashboard.retryLatestRun?.()}
+          onCancel={() => dashboard.notifySoon?.("Cancel is not available yet, but your queue is safe and you can retry anytime.")}
+        />
+        <TrendingSportsPanel trends={trends} onMakeVideo={(item) => dashboard.createFromTrend?.(item)} />
       </section>
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <AutomationPanel runtime={runtime} />
@@ -114,7 +118,7 @@ function DashboardHome({ dashboard, focus = "home" }) {
 }
 
 function HeroSection({ dashboard }) {
-  const { status, language, setLanguage, promptInput, setPromptInput, runNow, runShort, runLong, generateAutoPrompt, actionState } = dashboard;
+  const { status, language, setLanguage, promptInput, setPromptInput, runNow, runShort, runLong, generateAutoPrompt, actionState, useSportPrompt } = dashboard;
 
   return (
     <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="hero-creator creator-hero-premium">
@@ -148,7 +152,7 @@ function HeroSection({ dashboard }) {
                   <p className="text-sm font-semibold text-[var(--text-main)]">Pick a sport</p>
                   <div className="grid grid-cols-2 gap-3">
                     {sportOptions.map((sport) => (
-                      <button key={sport.key} type="button" className="selector-card">
+                      <button key={sport.key} type="button" className="selector-card" onClick={() => useSportPrompt?.(sport)}>
                         <sport.icon className="h-6 w-6 text-sky-300" />
                         <span>{sport.label}</span>
                       </button>
@@ -247,9 +251,9 @@ function QuickActions({ dashboard }) {
   const actionMap = [
     dashboard.runShort,
     dashboard.runLong,
-    dashboard.generateAutoPrompt,
-    dashboard.refreshStatus,
-    dashboard.runNow,
+    () => dashboard.notifySoon?.("Thumbnail generation runs after you choose a topic or start a video."),
+    () => document.querySelector('[data-section="trending-sports"]')?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    dashboard.uploadLatest,
     dashboard.generateAutoPrompt,
   ];
 
@@ -375,7 +379,7 @@ function RecentVideosPanel({ videos, status }) {
   );
 }
 
-function UploadQueuePanel({ uploads }) {
+function UploadQueuePanel({ uploads, onRetry, onCancel }) {
   return (
     <section className="studio-card p-6">
       <div className="flex items-center justify-between gap-4">
@@ -399,8 +403,12 @@ function UploadQueuePanel({ uploads }) {
               <div className="mini-progress-bar creator-accent-bar" style={{ width: `${item.progress}%` }} />
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
-              <button type="button" className="secondary-button min-h-[52px] px-5">Retry</button>
-              <button type="button" className="secondary-button min-h-[52px] px-5">Cancel</button>
+              <button type="button" className="secondary-button min-h-[52px] px-5" onClick={() => onRetry?.(item)}>
+                Retry
+              </button>
+              <button type="button" className="secondary-button min-h-[52px] px-5" onClick={() => onCancel?.(item)}>
+                Cancel
+              </button>
             </div>
           </div>
         ))}
@@ -409,9 +417,9 @@ function UploadQueuePanel({ uploads }) {
   );
 }
 
-function TrendingSportsPanel({ trends }) {
+function TrendingSportsPanel({ trends, onMakeVideo }) {
   return (
-    <section className="studio-card p-6">
+    <section className="studio-card p-6" data-section="trending-sports">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="section-kicker">Trending Sports</p>
@@ -431,7 +439,9 @@ function TrendingSportsPanel({ trends }) {
                 <p className="mt-3 text-base font-semibold text-[var(--text-main)]">{item.title}</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{item.summary}</p>
               </div>
-              <button type="button" className="primary-button min-h-[56px] px-5 text-sm">Make Video</button>
+              <button type="button" className="primary-button min-h-[56px] px-5 text-sm" onClick={() => onMakeVideo?.(item)}>
+                Make Video
+              </button>
             </div>
           </div>
         ))}
