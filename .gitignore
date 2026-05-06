@@ -3,6 +3,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+.mypy_cache/
+.coverage
+.DS_Store
 .env
 .env.local
 .env.development.local
@@ -12,5 +16,10 @@ tmp/
 node_modules/
 dist/
 frontend/dist/
+frontend/build/
+frontend/node_modules/
+*.log
+*_TEMP_MPY_*
+*TEMP_MPY*
 client_secret.json
 logs.txt

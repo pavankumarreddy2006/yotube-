@@ -1118,8 +1118,7 @@ def run_test_mode(language: str | None = None) -> None:
     if not video_path or not Path(video_path).exists():
         raise RuntimeError("Test mode video generation failed.")
 
-    send_stage_notification("video_created", f"Test video created at {video_path}")
-    send_stage_notification("all_done", "Telegram test message sent successfully.")
+    logger.info("Test mode video created at %s", video_path)
 
 
 def _create_test_audio(path: Path, duration_seconds: int = 4) -> str:

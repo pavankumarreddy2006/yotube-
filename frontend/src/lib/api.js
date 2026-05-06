@@ -31,8 +31,19 @@ export function fetchDashboardState() {
   return request("/dashboard-state");
 }
 
+export function fetchAnalytics() {
+  return request("/analytics");
+}
+
 export function startAutomation(payload) {
   return request("/automation/start", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function generateVideo(payload) {
+  return request("/generate-video", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -61,6 +72,13 @@ export function testTelegram(message) {
 
 export function askSportsAi(payload) {
   return request("/ask", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function renderThumbnail(payload) {
+  return request("/render-thumbnail", {
     method: "POST",
     body: JSON.stringify(payload),
   });

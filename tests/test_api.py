@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+import app as app_module
+
+app = app_module.app
 
 
 class ApiTests(unittest.TestCase):
@@ -24,12 +27,20 @@ class ApiTests(unittest.TestCase):
         self.assertIn("status", payload)
         self.assertIn("queue", payload["status"])
 
-    def test_generate_video_alias_queues_job(self) -> None:
-        response = self.client.post("/generate-video", json={"mode": "test", "language": "en", "prompt": ""})
+    def test_analytics_endpoint(self) -> None:
+        response = self.client.get("/analytics")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["status"], "queued")
-        self.assertIn("job_id", payload)
+        self.assertIn("status", payload)
+        self.assertIn("queue", payload)
+
+    def test_generate_video_alias_queues_job(self) -> None:
+        with patch.object(app_module, "_launch_pipeline", return_value={"status": "queued", "job_id": "job-test", "mode": "test", "language": "en"}):
+            response = self.client.post("/generate-video", json={"mode": "test", "language": "en", "prompt": ""})
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["status"], "queued")
+            self.assertEqual(payload["job_id"], "job-test")
 
 
 if __name__ == "__main__":

@@ -1,18 +1,28 @@
 # Telugu YouTube Sports Automation
 
-This project combines a FastAPI backend, a React web application, and a resilient content pipeline for a Telugu sports YouTube workflow. It now targets a daily bulletin format: one long video plus one Short built from fresh sports highlights, with Telugu narration and English YouTube metadata.
+This project combines a FastAPI backend, a React web application, and an automated media pipeline for generating sports videos, subtitles, thumbnails, and uploads.
 
-## Main files
+## Project structure
 
-- `app.py`: FastAPI web application and API endpoints
-- `main.py`: pipeline runner
-- `data.py`: topic collection and fallback stories
-- `content.py`: content generation and fallback templates
-- `thumbnail.py`: thumbnail entrypoint
-- `thumbnail_generator.py`: Pillow-based thumbnail renderer
-- `video.py`: FFmpeg video creation
-- `upload.py`: YouTube upload flow
-- `frontend/`: Vite React web application
+The repo is now organized around these responsibilities:
+
+- `app.py`: FastAPI API gateway and frontend serving
+- `main.py`: pipeline orchestration entrypoint
+- `backend/models/`: shared pipeline data models
+- `services/`: timing, planning, and orchestration helpers
+- `render_engine/`: render integration layer
+- `subtitle_engine/`: SRT generation and subtitle timing output
+- `thumbnail_engine/`: validated thumbnail generation
+- `ml_engine/`: semantic media matching helpers
+- `workers/`: queue-oriented worker package
+- `frontend/`: Vite + React dashboard
+- `tests/`: API, queue, planning, rendering, and thumbnail tests
+- `output/`: generated runtime artifacts
+- `tmp/`: temporary runtime files
+
+## Legacy compatibility
+
+The root modules like `video.py`, `thumbnail.py`, `queue_manager.py`, `content.py`, and `data.py` still exist as compatibility entrypoints so the current app keeps working while the project is being modularized.
 
 ## Daily automation flow
 
@@ -93,14 +103,19 @@ powershell -ExecutionPolicy Bypass -File .\start-local.ps1
 ## API routes
 
 - `GET /health`
+- `GET /dashboard-state`
 - `GET /status`
 - `GET /news`
-- `GET /decision`
-- `GET /content`
 - `GET /logs`
-- `POST /run`
+- `GET /queue`
+- `GET /runtime-settings`
+- `GET /analytics`
+- `POST /automation/start`
+- `POST /automation/prompt`
+- `POST /generate-video`
 - `POST /retry`
 - `POST /upload`
+- `POST /render-thumbnail`
 
 ## Deployment
 
@@ -127,6 +142,7 @@ For Render, set these environment variables explicitly if you want a fully green
 ## Notes
 
 - Generated output is stored in `output/`.
+- Frontend production assets are built into `frontend/build/`.
 - The web application falls back to local content when upstream providers fail.
 - If upload is disabled, assets are still generated locally.
 - Duplicate protection uses the latest headline signature to avoid rerunning the same bulletin content.

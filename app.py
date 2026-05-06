@@ -191,9 +191,7 @@ def _load_status() -> dict[str, Any]:
 
 
 def _validate_request(request: Request) -> None:
-    configured_api_key = settings.openai_api_key[:0]
-    configured_api_key = getattr(settings, "api_key", "") if hasattr(settings, "api_key") else configured_api_key
-    required_api_key = str(configured_api_key or "").strip()
+    required_api_key = str(getattr(settings, "api_key", "") or "").strip()
     if required_api_key and request.headers.get("x-api-key", "").strip() != required_api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
@@ -448,6 +446,40 @@ async def ask_alias(payload: PromptRequest) -> JSONResponse:
 async def render_thumbnail_endpoint(payload: PromptRequest) -> JSONResponse:
     prompt = _build_prompt(payload.topic, language=normalize_language(payload.language), mode=payload.mode)
     return JSONResponse({"status": "ready", "thumbnail_text": prompt["topic"][:48], "prompt": prompt["prompt"]})
+
+
+@app.get("/analytics")
+async def analytics() -> JSONResponse:
+    status = _load_status()
+    queue = job_queue.snapshot()
+    latest_run = _latest_run_payload()
+    return JSONResponse(
+        {
+            "status": {
+                "running": status.get("running", False),
+                "failed": status.get("failed", False),
+                "mode": status.get("mode", ""),
+                "language": status.get("language", ""),
+                "last_run_time": status.get("last_run_time", ""),
+            },
+            "queue": {
+                "current_job": queue.get("current_job"),
+                "queue_length": queue.get("queue_length", 0),
+                "failed_jobs": len(queue.get("failed_jobs", [])),
+                "completed_jobs": len(queue.get("completed_jobs", [])),
+            },
+            "artifacts": {
+                "thumbnail_url": status.get("thumbnail_url", ""),
+                "preview_items": status.get("preview_items", []),
+                "youtube_links": status.get("youtube_links", []),
+            },
+            "latest_run": {
+                "title": latest_run.get("title", ""),
+                "completed_at": latest_run.get("completed_at", ""),
+                "work_dir": latest_run.get("work_dir", ""),
+            },
+        }
+    )
 
 
 @app.get("/events")
