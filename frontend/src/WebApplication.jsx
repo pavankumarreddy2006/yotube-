@@ -2,15 +2,14 @@ import {
   Bell,
   Bot,
   BrainCircuit,
-  CircleDollarSign,
   Clapperboard,
-  Command,
+  Flame,
+  Home,
   LayoutDashboard,
   Newspaper,
+  Palette,
   Settings,
-  ShieldCheck,
   Sparkles,
-  Trophy,
   Upload,
   Workflow,
 } from "lucide-react";
@@ -20,22 +19,21 @@ import DashboardPage from "./pages/DashboardPage";
 import { useDashboardData } from "./hooks/useDashboardData";
 
 const navigation = [
-  { key: "dashboard", label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, section: "overview" },
+  { key: "dashboard", label: "Home", path: "/dashboard", icon: Home, section: "overview" },
+  { key: "video-generator", label: "Create Video", path: "/video-generator", icon: Clapperboard, section: "overview" },
   { key: "sports-news", label: "Sports News", path: "/sports-news", icon: Newspaper, section: "overview" },
-  { key: "ai-content", label: "AI Content", path: "/ai-content", icon: BrainCircuit, section: "studio" },
-  { key: "video-generator", label: "Video Generator", path: "/video-generator", icon: Clapperboard, section: "studio" },
+  { key: "ai-content", label: "AI Studio", path: "/ai-content", icon: BrainCircuit, section: "studio" },
+  { key: "thumbnails", label: "Thumbnails", path: "/thumbnails", icon: Palette, section: "studio" },
   { key: "uploads", label: "Uploads", path: "/uploads", icon: Upload, section: "studio" },
   { key: "analytics", label: "Analytics", path: "/analytics", icon: Bell, section: "intelligence" },
-  { key: "teams-players", label: "Teams & Players", path: "/teams-players", icon: Trophy, section: "intelligence" },
   { key: "automation", label: "Automation", path: "/automation", icon: Workflow, section: "ops" },
-  { key: "monetization", label: "Monetization", path: "/monetization", icon: CircleDollarSign, section: "ops" },
   { key: "settings", label: "Settings", path: "/settings", icon: Settings, section: "ops" },
 ];
 
 const quickActions = [
   { key: "run", label: "Start automation", icon: Sparkles },
-  { key: "command", label: "Command menu", icon: Command },
-  { key: "guard", label: "Automation guarded", icon: ShieldCheck },
+  { key: "monitor", label: "Live monitoring", icon: LayoutDashboard },
+  { key: "trends", label: "Trending sports", icon: Flame },
 ];
 
 export default function WebApplication() {
@@ -62,8 +60,8 @@ export default function WebApplication() {
       theme={theme}
       onToggleTheme={() => setTheme((value) => (value === "dark" ? "light" : "dark"))}
       workspace={{
-        name: "Sports AI Studio",
-        plan: "Growth Workspace",
+        name: "CreatorOS AI",
+        plan: "Autonomous Sports Studio",
         icon: Bot,
       }}
       quickActions={quickActions}

@@ -310,6 +310,7 @@ def build_video(
     highlights: list[str] | None = None,
     visual_queries: list[str] | None = None,
     scene_image_paths: list[str] | None = None,
+    progress_callback=None,
 ) -> str:
     if not audio_path:
         raise ValueError("Audio path is required")
@@ -357,6 +358,8 @@ def build_video(
         )
         prepared_dir = resolved_output_path.parent / "scenes"
         prepared_dir.mkdir(parents=True, exist_ok=True)
+        if progress_callback:
+            progress_callback(5, "Preparing render plan.")
 
         for scene in plan.scenes:
             scene_image = _build_scene_image(
@@ -377,6 +380,9 @@ def build_video(
                 .crossfadeout(min(0.25, scene.duration / 3))
             )
             base_clips.append(clip)
+            if progress_callback and plan.scenes:
+                progress_value = 10 + int((scene.index / max(len(plan.scenes), 1)) * 40)
+                progress_callback(progress_value, f"Preparing scene {scene.index} of {len(plan.scenes)}.")
 
         video_track = CompositeVideoClip(base_clips, size=target_size).set_duration(duration)
         if settings.enable_subtitles and plan.subtitles:
@@ -393,6 +399,8 @@ def build_video(
 
         final_layers = [video_track] + subtitle_clips
         final_clip = CompositeVideoClip(final_layers, size=target_size).set_audio(audio_clip).set_duration(duration)
+        if progress_callback:
+            progress_callback(60, "Encoding final video.")
 
         logger.info("Creating video: %s", resolved_output_path)
         final_clip.write_videofile(
@@ -404,6 +412,8 @@ def build_video(
             threads=2,
             logger=None,
         )
+        if progress_callback:
+            progress_callback(100, "Render completed.")
         logger.info("Video created: %s", resolved_output_path)
         return str(resolved_output_path)
     finally:

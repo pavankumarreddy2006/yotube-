@@ -9,15 +9,16 @@ from utils import get_logger
 logger = get_logger(__name__)
 
 STAGE_LABELS = {
-    "started": "Video Started",
-    "news_fetched": "News Fetched",
-    "script_ready": "Script Generation",
-    "voice_generated": "Voice Generation",
-    "video_created": "Video Rendering",
-    "uploading": "YouTube Upload",
-    "upload_success": "Upload Success",
-    "all_done": "Automation Completed",
-    "error": "Error Occurred",
+    "started": "🚀 Automation Started",
+    "news_fetched": "📰 Topic Selected",
+    "script_ready": "✍ Script Generated",
+    "voice_generated": "🎤 Voice Generated",
+    "video_created": "🎬 Rendering Completed",
+    "uploading": "📤 Upload Started",
+    "upload_success": "✅ Upload Completed",
+    "retry_started": "🔁 Retry Started",
+    "all_done": "✅ Automation Completed",
+    "error": "❌ Automation Failed",
 }
 
 
@@ -37,14 +38,6 @@ def validate_telegram_config() -> None:
     if not (runtime.has_telegram or settings.has_telegram):
         raise RuntimeError("Telegram credentials missing. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.")
 
-    logger.info("Validating Telegram bot configuration.")
-    me_response = requests.get(_telegram_url("getMe"), timeout=20)
-    _log_telegram_response(me_response, "getMe")
-    me_response.raise_for_status()
-    me_payload = me_response.json()
-    if not me_payload.get("ok"):
-        raise RuntimeError(f"Telegram getMe failed: {me_payload}")
-
 
 def send_telegram(message: str) -> None:
     runtime = get_runtime_settings()
@@ -59,6 +52,7 @@ def send_telegram(message: str) -> None:
         json={
             "chat_id": str(runtime.telegram_chat_id or settings.telegram_chat_id),
             "text": str(message),
+            "disable_web_page_preview": True,
         },
         timeout=20,
     )
@@ -77,7 +71,7 @@ def send_telegram(message: str) -> None:
 
 def send_stage_notification(stage: str, detail: str = "") -> None:
     prefix = STAGE_LABELS.get(stage, stage.upper())
-    message = prefix if not detail else f"{prefix}\n\n{detail}"
+    message = "CreatorOS AI\n\n" + (prefix if not detail else f"{prefix}\n\n{detail}")
     try:
         send_telegram(message)
     except Exception as exc:  # noqa: BLE001

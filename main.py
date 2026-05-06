@@ -26,6 +26,7 @@ from ml_engine import (
     simulate_performance_snapshot,
     update_learning_state,
 )
+from monitoring import ensure_status_shape, now_iso, update_stage_snapshot
 from notify import send_stage_notification, send_upload_failure, send_upload_success
 from queue_manager import job_queue
 from runtime import get_runtime_settings
@@ -99,12 +100,12 @@ def _safe_scored_topic(candidate: TopicCandidate) -> ScoredTopic:
 
 
 def _read_status() -> dict[str, Any]:
-    return load_json(STATUS_FILE, default={}) or {}
+    return ensure_status_shape(load_json(STATUS_FILE, default={}) or {})
 
 
 def _write_status(update: dict[str, Any]) -> None:
     current = _read_status()
-    merged = {**current, **update}
+    merged = ensure_status_shape({**current, **update})
     dump_json(merged, STATUS_FILE)
 
 
@@ -264,6 +265,62 @@ def _append_notification(message: str) -> None:
     publish_event("notification", message, {"message": message})
 
 
+def _append_activity(message: str, *, stage: str, icon: str = "•", progress: int | None = None, tone: str = "info") -> None:
+    current = _read_status()
+    feed = list(current.get("activity_feed", []))
+    feed.append(
+        {
+            "id": f"activity-{len(feed) + 1}",
+            "timestamp": now_iso(),
+            "stage": stage,
+            "icon": icon,
+            "progress": progress,
+            "tone": tone,
+            "message": message,
+        }
+    )
+    current["activity_feed"] = feed[-80:]
+    dump_json(current, STATUS_FILE)
+
+
+def _update_status_block(key: str, payload: dict[str, Any]) -> None:
+    current = _read_status()
+    existing = dict(current.get(key, {}))
+    existing.update(payload)
+    existing["updated_at"] = now_iso()
+    current[key] = existing
+    dump_json(current, STATUS_FILE)
+
+
+def _set_overall_progress(progress: int, *, eta_seconds: int | None = None) -> None:
+    current = _read_status()
+    current["overall_progress"] = max(0, min(100, int(progress)))
+    if eta_seconds is not None:
+        current["eta_seconds"] = max(0, int(eta_seconds))
+    dump_json(current, STATUS_FILE)
+
+
+def _mark_stage(
+    stage_key: str,
+    *,
+    stage_status: str,
+    progress: int,
+    message: str,
+    overall_progress: int,
+) -> None:
+    current = _read_status()
+    current["stages"] = update_stage_snapshot(
+        list(current.get("stages", [])),
+        stage_key=stage_key,
+        stage_status=stage_status,
+        progress=progress,
+        message=message,
+        timestamp=now_iso(),
+    )
+    current["overall_progress"] = max(0, min(100, int(overall_progress)))
+    dump_json(current, STATUS_FILE)
+
+
 def _set_stage(
     stage: str,
     label: str,
@@ -272,8 +329,15 @@ def _set_stage(
     running: bool = True,
     failed: bool = False,
     telegram_stage: str | None = None,
+    stage_key: str | None = None,
+    stage_progress: int | None = None,
+    overall_progress: int | None = None,
+    eta_seconds: int | None = None,
+    icon: str = "•",
 ) -> None:
-    timestamp = datetime.now().isoformat()
+    timestamp = now_iso()
+    current = _read_status()
+    progress_value = int(overall_progress if overall_progress is not None else current.get("overall_progress", 0))
     _write_status(
         {
             "running": running,
@@ -283,10 +347,21 @@ def _set_stage(
             "last_run_time": timestamp,
             "current_stage": stage,
             "progress_label": label,
+            "overall_progress": progress_value,
+            "eta_seconds": eta_seconds if eta_seconds is not None else current.get("eta_seconds"),
         }
     )
+    if stage_key:
+        _mark_stage(
+            stage_key,
+            stage_status="failed" if failed else ("active" if running else "completed"),
+            progress=stage_progress if stage_progress is not None else progress_value,
+            message=detail or label,
+            overall_progress=progress_value,
+        )
     job_queue.mark_current_job_stage(stage, detail or label)
     _append_log(detail or label, level="error" if failed else "info", stage=stage)
+    _append_activity(detail or label, stage=stage_key or stage, icon=icon, progress=stage_progress or progress_value, tone="error" if failed else "info")
     publish_event(stage, detail or label, {"stage": stage, "label": label, "failed": failed})
     if telegram_stage:
         send_stage_notification(telegram_stage, detail)
@@ -349,6 +424,62 @@ def _script_similarity_score(content: ContentPackage) -> float:
     if not current_script or not previous_script:
         return 0.0
     return SequenceMatcher(None, current_script, previous_script).ratio() * 100.0
+
+
+def _update_render_status(*, title: str, variant: str, progress: int, message: str, active: bool = True, eta_seconds: int | None = None) -> None:
+    _update_status_block(
+        "render_status",
+        {
+            "active": active,
+            "title": title,
+            "variant": variant,
+            "progress": max(0, min(100, int(progress))),
+            "eta_seconds": eta_seconds,
+            "message": message,
+        },
+    )
+    _append_activity(message, stage="render", icon="🎬", progress=progress)
+
+
+def _update_upload_status(
+    *,
+    title: str,
+    variant: str,
+    progress: int,
+    message: str,
+    active: bool = True,
+    eta_seconds: int | None = None,
+    link: str = "",
+    failed: bool = False,
+) -> None:
+    _update_status_block(
+        "upload_status",
+        {
+            "active": active,
+            "platform": "YouTube",
+            "title": title,
+            "variant": variant,
+            "progress": max(0, min(100, int(progress))),
+            "eta_seconds": eta_seconds,
+            "message": message,
+            "link": link,
+            "failed": failed,
+        },
+    )
+    _append_activity(message, stage="upload", icon="📤" if not failed else "❌", progress=progress, tone="error" if failed else "info")
+
+
+def _update_quality_status(*, progress: int, message: str, active: bool = True, failed: bool = False) -> None:
+    _update_status_block(
+        "quality_status",
+        {
+            "active": active,
+            "progress": max(0, min(100, int(progress))),
+            "message": message,
+            "failed": failed,
+        },
+    )
+    _append_activity(message, stage="quality", icon="🛡" if not failed else "⚠", progress=progress, tone="error" if failed else "info")
 
 
 def _apply_duplicate_variation(content: ContentPackage, *, topic: str, attempt: int) -> tuple[ContentPackage, dict[str, str]]:
@@ -577,6 +708,7 @@ def create_video(
     highlights: list[str],
     visual_queries: list[str],
     scene_image_paths: list[str],
+    progress_callback=None,
 ) -> str | None:
     try:
         return build_video(
@@ -588,6 +720,7 @@ def create_video(
             highlights=highlights,
             visual_queries=visual_queries,
             scene_image_paths=scene_image_paths,
+            progress_callback=progress_callback,
         )
     except Exception as exc:
         _append_log(f"Video generation failed: {exc}", level="error", stage="video")
@@ -601,6 +734,7 @@ def upload_video_safe(
     thumbnail_path: str | None,
     *,
     long_form: bool,
+    progress_callback=None,
 ) -> str | None:
     if not video_path or not thumbnail_path:
         return "upload-skipped-missing-artifacts"
@@ -620,6 +754,7 @@ def upload_video_safe(
             description=description,
             tags=content.tags,
             thumbnail_path=str(thumbnail_path),
+            progress_callback=progress_callback,
         )
     except Exception as exc:
         message = str(exc).strip() or "Unknown upload error"
@@ -640,11 +775,47 @@ def _attempt_uploads(
     if not runtime_settings.enable_upload or not settings.has_youtube_upload:
         skipped = "upload-skipped-missing-credentials"
         return skipped, skipped if runtime_settings.enable_long_video else None
-    _set_stage("uploading", "Uploading", detail="Uploading long and short videos to YouTube.", telegram_stage="uploading")
-    shorts_upload_result = upload_video_safe(shorts_video_path, content, thumbnail_path, long_form=False)
+    _set_stage(
+        "uploading",
+        "Uploading",
+        detail="Uploading finished videos to YouTube.",
+        telegram_stage="uploading",
+        stage_key="upload",
+        stage_progress=10,
+        overall_progress=88,
+        eta_seconds=180,
+        icon="📤",
+    )
+    shorts_upload_result = upload_video_safe(
+        shorts_video_path,
+        content,
+        thumbnail_path,
+        long_form=False,
+        progress_callback=lambda progress, status_text: _update_upload_status(
+            title=content.title,
+            variant="Shorts",
+            progress=progress,
+            message=status_text,
+            active=progress < 100,
+            eta_seconds=max(15, int((100 - progress) * 1.8)) if progress < 100 else 0,
+        ),
+    )
     long_upload_result: str | None = None
     if runtime_settings.enable_long_video and long_video_path:
-        long_upload_result = upload_video_safe(long_video_path, content, thumbnail_path, long_form=True)
+        long_upload_result = upload_video_safe(
+            long_video_path,
+            content,
+            thumbnail_path,
+            long_form=True,
+            progress_callback=lambda progress, status_text: _update_upload_status(
+                title=content.title,
+                variant="Long Video",
+                progress=progress,
+                message=status_text,
+                active=progress < 100,
+                eta_seconds=max(20, int((100 - progress) * 2.4)) if progress < 100 else 0,
+            ),
+        )
     return shorts_upload_result, long_upload_result
 
 
@@ -775,7 +946,15 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
         )
         return
 
-    _set_stage("started", "Processing", detail=f"Starting automation in {content.language_label}.", telegram_stage="started")
+    _set_stage(
+        "started",
+        "AI System Active",
+        detail=f"Automation started in {content.language_label}. Preparing the next sports story.",
+        telegram_stage="started",
+        overall_progress=3,
+        eta_seconds=420,
+        icon="🚀",
+    )
     _validate_video_environment()
     candidates, trends = fetch_all_candidates()
     learning_state = load_learning_state()
@@ -802,9 +981,14 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
 
     _set_stage(
         "news_fetched",
-        "Processing",
+        "Researching",
         detail=f"Fetched {len(candidates) or len(highlights)} sports items across cricket, football, tennis, and Olympics.",
         telegram_stage="news_fetched",
+        stage_key="research",
+        stage_progress=100,
+        overall_progress=14,
+        eta_seconds=360,
+        icon="🧠",
     )
 
     content = generate_content(selected_topic, scored, trends, highlights, language=language)
@@ -815,15 +999,22 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
     )
     _set_stage(
         "script_ready",
-        "Processing",
+        "Script Ready",
         detail=f"{content.language_label} scripts generated for long video and Shorts.",
         telegram_stage="script_ready",
+        stage_key="script",
+        stage_progress=100,
+        overall_progress=30,
+        eta_seconds=300,
+        icon="✍",
     )
 
     work_dir = OUTPUT_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_{slugify(content.title or selected_topic.title)}"
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    thumbnail_path = str(create_thumbnail(content.thumbnail_text or "షాక్ న్యూస్", content.thumbnail_idea, work_dir / "thumbnail.jpg"))
+    thumbnail_path = str(create_thumbnail(content.thumbnail_text or "SPORTS UPDATE", content.thumbnail_idea, work_dir / "thumbnail.jpg"))
+    _mark_stage("thumbnail", stage_status="completed", progress=100, message="Thumbnail generated.", overall_progress=40)
+    _append_activity("Thumbnail generated and ready for the video package.", stage="thumbnail", icon="🖼", progress=100)
 
     dump_json(
         {
@@ -846,12 +1037,18 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
         long_audio_path = generate_voice_track(content.long_script, work_dir / "long.mp3", language)
     _set_stage(
         "voice_generated",
-        "Processing",
+        "Voice Ready",
         detail=f"Voice tracks generated in {content.language_label}.",
         telegram_stage="voice_generated",
+        stage_key="voice",
+        stage_progress=100,
+        overall_progress=52,
+        eta_seconds=240,
+        icon="🎤",
     )
 
     if make_shorts:
+        _update_render_status(title=content.title, variant="Shorts", progress=2, message="Rendering Shorts started.", eta_seconds=160)
         shorts_video_path = create_video(
             audio_path=shorts_audio_path,
             image_path=thumbnail_path,
@@ -861,8 +1058,17 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
             highlights=content.highlights[:3] or [content.hook],
             visual_queries=content.visual_queries[:3],
             scene_image_paths=_scene_image_paths(highlights[:3]),
+            progress_callback=lambda progress, message: _update_render_status(
+                title=content.title,
+                variant="Shorts",
+                progress=progress,
+                message=message,
+                active=progress < 100,
+                eta_seconds=max(15, int((100 - progress) * 2)) if progress < 100 else 0,
+            ),
         )
     if make_long:
+        _update_render_status(title=content.title, variant="Long Video", progress=2, message="Rendering long video started.", eta_seconds=260)
         long_video_path = create_video(
             audio_path=long_audio_path,
             image_path=thumbnail_path,
@@ -872,23 +1078,43 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
             highlights=content.highlights,
             visual_queries=content.visual_queries,
             scene_image_paths=_scene_image_paths(highlights),
+            progress_callback=lambda progress, message: _update_render_status(
+                title=content.title,
+                variant="Long Video",
+                progress=progress,
+                message=message,
+                active=progress < 100,
+                eta_seconds=max(25, int((100 - progress) * 3)) if progress < 100 else 0,
+            ),
         )
     _set_stage(
         "video_created",
-        "Uploading",
+        "Rendering Complete",
         detail="Long and short videos created with subtitles, visuals, and background music.",
         telegram_stage="video_created",
+        stage_key="render",
+        stage_progress=100,
+        overall_progress=76,
+        eta_seconds=180,
+        icon="🎬",
     )
+    _update_render_status(title=content.title, variant="Ready", progress=100, message="Rendering completed successfully.", active=False, eta_seconds=0)
 
+    _set_stage("quality_check", "Quality Check", detail="Validating audio sync, duration, and thumbnail quality.", stage_key="quality", stage_progress=20, overall_progress=80, eta_seconds=120, icon="🛡")
+    _update_quality_status(progress=25, message="Checking thumbnail quality and output duration.")
     thumbnail_issues = _validate_thumbnail(thumbnail_path)
     if thumbnail_issues:
+        _update_quality_status(progress=100, message="Thumbnail validation failed.", active=False, failed=True)
         raise RuntimeError("; ".join(thumbnail_issues))
 
     issues = _quality_check_video(shorts_video_path, min_seconds=20, label="shorts video") if make_shorts else []
     if make_long:
         issues.extend(_quality_check_video(long_video_path, min_seconds=120, label="long video"))
     if issues:
+        _update_quality_status(progress=100, message="Quality checks failed. Automatic retry will start if available.", active=False, failed=True)
         raise RuntimeError("; ".join(issues))
+    _mark_stage("quality", stage_status="completed", progress=100, message="Quality checks passed.", overall_progress=85)
+    _update_quality_status(progress=100, message="Quality validation passed. Ready to upload.", active=False)
 
     shorts_upload_result, long_upload_result = _attempt_uploads(
         shorts_video_path=shorts_video_path,
@@ -1041,6 +1267,9 @@ def _finalize_success(
             "last_run_time": datetime.now().isoformat(),
             "current_stage": "completed",
             "progress_label": "Completed",
+            "overall_progress": 100,
+            "eta_seconds": 0,
+            "completed_at": now_iso(),
             "mode": mode,
             "language": language,
             "language_label": content.language_label,
@@ -1058,6 +1287,16 @@ def _finalize_success(
             "top_opportunities": opportunities[:5],
         }
     )
+    _update_upload_status(
+        title=content.title,
+        variant="YouTube",
+        progress=100,
+        message="Upload completed successfully.",
+        active=False,
+        eta_seconds=0,
+        link=shorts_upload_result if shorts_upload_result and shorts_upload_result.startswith("https://") else (long_upload_result or ""),
+    )
+    _append_activity("Automation completed successfully.", stage="completed", icon="✅", progress=100, tone="success")
     if get_storage().is_enabled():
         for local_path in [shorts_audio_path, long_audio_path, shorts_video_path, long_video_path, thumbnail_path]:
             if not local_path:
@@ -1085,16 +1324,23 @@ def run_pipeline(mode: str = "full", language: str | None = None, topic_override
         {
             "running": True,
             "failed": False,
-            "status": "Processing",
+            "status": "Preparing",
             "current_task": "Preparing automation run.",
             "last_run_time": datetime.now().isoformat(),
             "current_stage": "queued",
             "progress_label": "Queued",
+            "overall_progress": 0,
+            "eta_seconds": 480,
+            "started_at": now_iso(),
+            "completed_at": "",
+            "retry_count": 0,
+            "max_retries": max(0, settings.pipeline_retry_limit),
             "mode": mode,
             "language": normalized_language,
             "language_label": "Telugu" if normalized_language == "te" else "English",
             "live_logs": [],
             "notifications": [],
+            "activity_feed": [],
             "preview_items": [],
             "youtube_links": [],
             "thumbnail_url": "",
@@ -1108,6 +1354,11 @@ def run_pipeline(mode: str = "full", language: str | None = None, topic_override
         last_error: Exception | None = None
         for attempt in range(1, attempts + 1):
             try:
+                if attempt > 1:
+                    _write_status({"retry_count": attempt - 1, "status": "Retrying", "current_task": f"Retry attempt {attempt} of {attempts} in progress.", "overall_progress": 6})
+                    _append_notification(f"Retry started: attempt {attempt} of {attempts}.")
+                    _append_activity(f"Retrying the automation after a failure. Attempt {attempt} of {attempts}.", stage="retry", icon="🔁", progress=6)
+                    send_stage_notification("retry_started", f"Retry attempt {attempt} of {attempts} has started.")
                 _append_log(f"Pipeline attempt {attempt} of {attempts}.", stage="retry")
                 _run_once(mode=mode, language=normalized_language, topic_override=topic_override)
                 return
@@ -1127,8 +1378,14 @@ def run_pipeline(mode: str = "full", language: str | None = None, topic_override
                 "last_run_time": datetime.now().isoformat(),
                 "current_stage": "failed",
                 "progress_label": "Failed",
+                "overall_progress": 100,
+                "eta_seconds": 0,
+                "completed_at": now_iso(),
             }
         )
+        _update_render_status(title="", variant="", progress=100, message="Rendering stopped because the run failed.", active=False, eta_seconds=0)
+        _update_upload_status(title="", variant="", progress=100, message=f"Upload stopped: {message}", active=False, eta_seconds=0, failed=True)
+        _update_quality_status(progress=100, message=f"Automation stopped: {message}", active=False, failed=True)
         _append_notification(f"Automation failed: {message}")
         send_upload_failure("pipeline", message)
     finally:

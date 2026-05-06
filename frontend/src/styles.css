@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -7,16 +7,16 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --bg: #0f172a;
-    --sidebar: #111827;
-    --card: #1e293b;
-    --border: #334155;
-    --accent: #3b82f6;
-    --success: #22c55e;
-    --warning: #f59e0b;
+    --bg: #0a0a0a;
+    --sidebar: #111111;
+    --card: #171717;
+    --border: #232323;
+    --accent: #fafafa;
+    --success: #d4d4d4;
+    --warning: #e5e5e5;
     --danger: #ef4444;
-    --text-main: #e2e8f0;
-    --text-secondary: #94a3b8;
+    --text-main: #fafafa;
+    --text-secondary: #a3a3a3;
   }
 
   :root[data-theme="light"] {
@@ -45,12 +45,13 @@
   }
 
   body {
-    @apply min-h-screen font-sans;
+    @apply min-h-screen;
+    font-family: "Manrope", sans-serif;
     background:
-      radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 26%),
-      radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 20%),
-      radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.08), transparent 22%),
-      linear-gradient(180deg, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.98) 100%);
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 26%),
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.05), transparent 20%),
+      radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.04), transparent 22%),
+      linear-gradient(180deg, #050505 0%, #0a0a0a 100%);
     color: var(--text-main);
   }
 
@@ -481,6 +482,111 @@
     border-color: rgba(51, 65, 85, 0.9);
     color: var(--text-secondary);
     background: rgba(255, 255, 255, 0.03);
+  }
+
+  .live-status-bar {
+    @apply sticky top-[82px] z-20 mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border px-4 py-3 sm:mx-6 xl:mx-8;
+    background: rgba(23, 23, 23, 0.85);
+    border-color: rgba(35, 35, 35, 1);
+    backdrop-filter: blur(18px);
+  }
+
+  .live-status-chip,
+  .badge,
+  .pulse-chip {
+    @apply inline-flex items-center rounded-full border px-3 py-1.5 text-xs;
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+  }
+
+  .pulse-chip {
+    color: var(--text-main);
+    animation: pulse-chip 1.8s ease-in-out infinite;
+  }
+
+  .hero-creator,
+  .studio-card {
+    @apply rounded-[32px] border shadow-2xl;
+    background: rgba(23, 23, 23, 0.7);
+    border-color: rgba(35, 35, 35, 1);
+    backdrop-filter: blur(24px);
+  }
+
+  .hero-creator {
+    @apply p-6 md:p-8;
+  }
+
+  .creator-input {
+    @apply w-full rounded-[24px] border px-4 py-4 text-sm text-[var(--text-main)] outline-none;
+    border-color: rgba(35, 35, 35, 1);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .progress-block,
+  .queue-stat,
+  .queue-row,
+  .news-row,
+  .preview-row,
+  .stage-row,
+  .feed-row {
+    @apply rounded-[24px] border;
+    border-color: rgba(35, 35, 35, 1);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .progress-block,
+  .queue-stat,
+  .queue-row,
+  .news-row,
+  .preview-row,
+  .feed-row {
+    @apply p-4;
+  }
+
+  .stage-row {
+    @apply grid gap-3 p-4 md:grid-cols-[1fr_180px];
+  }
+
+  .progress-track,
+  .mini-progress,
+  .stage-meter {
+    @apply h-2 rounded-full overflow-hidden;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .progress-bar,
+  .mini-progress-bar,
+  .stage-meter-bar {
+    @apply h-full rounded-full;
+    background: linear-gradient(90deg, rgba(250, 250, 250, 0.95), rgba(163, 163, 163, 0.9));
+    transition: width 0.45s ease;
+  }
+
+  .activity-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+  }
+
+  .thumbnail-preview {
+    @apply w-full rounded-[28px] border object-cover;
+    border-color: rgba(35, 35, 35, 1);
+  }
+
+  .settings-field {
+    @apply grid gap-2 text-sm text-[var(--text-secondary)];
+  }
+
+  .toggle-row {
+    @apply flex items-center justify-between rounded-[24px] border p-4 text-sm text-[var(--text-main)];
+    border-color: rgba(35, 35, 35, 1);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  @keyframes pulse-chip {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
   }
 }
 

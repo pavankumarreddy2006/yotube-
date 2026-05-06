@@ -20,13 +20,13 @@ import { useEffect, useMemo, useState } from "react";
 import { StatusBadge } from "./StatusBadge";
 
 const groups = [
-  { key: "overview", label: "Overview" },
-  { key: "studio", label: "Studio" },
-  { key: "intelligence", label: "Intelligence" },
-  { key: "ops", label: "Operations" },
+  { key: "overview", label: "Home" },
+  { key: "studio", label: "Create" },
+  { key: "intelligence", label: "Insights" },
+  { key: "ops", label: "Control" },
 ];
 
-const mobileNavKeys = ["/dashboard", "/sports-news", "/ai-content", "/video-generator", "/settings"];
+const mobileNavKeys = ["/dashboard", "/video-generator", "/sports-news", "/uploads", "/settings"];
 
 export function AppShell({
   children,
@@ -165,7 +165,7 @@ export function AppShell({
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--text-secondary)]">Sports AI Control</p>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--text-secondary)]">CreatorOS AI</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <h1 className="truncate text-lg font-semibold text-[var(--text-main)] sm:text-xl">{currentItem.label}</h1>
                   <span className="hidden rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-[var(--text-secondary)] sm:inline-flex">
@@ -297,6 +297,7 @@ export function AppShell({
               </div>
             </div>
           </header>
+          <LiveStatusBar status={status} />
 
           {error ? (
             <div className="px-4 pb-0 pt-4 sm:px-6 xl:px-8">
@@ -333,6 +334,31 @@ export function AppShell({
       />
     </div>
   );
+}
+
+function LiveStatusBar({ status }) {
+  const toneClass = status?.failed ? "text-[var(--danger)]" : status?.running ? "text-[var(--success)]" : "text-[var(--text-main)]";
+  const eta = typeof status?.etaSeconds === "number" && status.etaSeconds > 0 ? formatEta(status.etaSeconds) : "Ready";
+  return (
+    <div className="live-status-bar">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`text-sm font-semibold ${toneClass}`}>{status?.running ? "AI System Active" : status?.failed ? "Attention Needed" : "Studio Ready"}</span>
+        <span className="live-status-chip">{status?.progressLabel || "Idle"}</span>
+        <span className="live-status-chip">{status?.currentTask || "Waiting for the next automation run"}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)]">
+        <span>{status?.uploadStatus?.active ? "Uploading to YouTube" : status?.renderStatus?.active ? "Rendering Video" : "Standing by"}</span>
+        <span>ETA: {eta}</span>
+      </div>
+    </div>
+  );
+}
+
+function formatEta(value) {
+  const total = Math.max(0, Number(value) || 0);
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
 function Sidebar({

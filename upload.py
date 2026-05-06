@@ -83,6 +83,7 @@ def upload_video(
     description: str,
     tags: list[str],
     thumbnail_path: str | Path,
+    progress_callback=None,
 ) -> str:
     if not settings.enable_upload:
         logger.info("Upload disabled. Skipping YouTube upload.")
@@ -118,6 +119,8 @@ def upload_video(
 
     def operation() -> str:
         try:
+            if progress_callback:
+                progress_callback(2, "Upload session created.")
             request = youtube.videos().insert(
                 part="snippet,status",
                 body={
@@ -136,9 +139,19 @@ def upload_video(
             )
             response = None
             while response is None:
-                _, response = request.next_chunk()
+                status, response = request.next_chunk()
+                if progress_callback:
+                    if status is not None and hasattr(status, "progress"):
+                        progress_value = max(2, min(98, int(float(status.progress()) * 100)))
+                        progress_callback(progress_value, f"Uploading {progress_value}%")
+                    elif response is None:
+                        progress_callback(8, "Uploading to YouTube...")
             video_id = response["id"]
+            if progress_callback:
+                progress_callback(99, "Finalizing thumbnail and publish metadata.")
             youtube.thumbnails().set(videoId=video_id, media_body=MediaFileUpload(str(thumbnail_path))).execute()
+            if progress_callback:
+                progress_callback(100, "Upload completed.")
             return f"https://www.youtube.com/watch?v={video_id}"
         except Exception as exc:
             message, status, reasons = _extract_google_error(exc)

@@ -21,6 +21,7 @@ from data import TopicCandidate
 from events import get_event_history, latest_event_id
 from main import PIPELINE_LOCK, _cleanup_old_artifacts, run_pipeline_logic
 from ml_engine import intelligence_snapshot, load_learning_state
+from monitoring import ensure_status_shape
 from notify import send_telegram
 from queue_manager import job_queue
 from runtime import get_runtime_settings, save_runtime_settings
@@ -153,7 +154,7 @@ def _load_logs() -> list[dict[str, str]]:
 
 def _load_status() -> dict[str, Any]:
     runtime = get_runtime_settings()
-    status = _read_json(STATUS_FILE, default={}) or {}
+    status = ensure_status_shape(_read_json(STATUS_FILE, default={}) or {})
     latest_run = _latest_run_payload()
     latest_content = _latest_content_payload()
     content = _as_mapping(latest_content.get("content", {}))
@@ -559,7 +560,7 @@ async def events(last_event_id: str | None = Header(default=None, alias="Last-Ev
                 previous_hash = current_hash
                 event_id = latest_event_id()
                 yield f"id: {event_id}\nevent: snapshot\ndata: {encoded}\nretry: 2000\n\n"
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
