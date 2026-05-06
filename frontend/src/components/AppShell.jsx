@@ -1,22 +1,24 @@
 import {
-  Activity,
-  Bot,
-  ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
-  LoaderCircle,
+  Bell,
+  ChevronRight,
+  Command,
+  Crown,
   Menu,
-  ShieldCheck,
-  Sparkles,
+  MoonStar,
+  Search,
+  SunMedium,
+  UserCircle2,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 import { StatusBadge } from "./StatusBadge";
 
-const navSections = [
-  { key: "content", label: "Automation" },
-  { key: "media", label: "Media" },
-  { key: "system", label: "System" },
+const groups = [
+  { key: "overview", label: "Overview" },
+  { key: "studio", label: "Studio" },
+  { key: "intelligence", label: "Intelligence" },
+  { key: "ops", label: "Operations" },
 ];
 
 export function AppShell({
@@ -30,30 +32,96 @@ export function AppShell({
   loading,
   error,
   onRetry,
+  theme,
+  onToggleTheme,
+  workspace,
+  quickActions,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((value) => !value);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const groupedNavigation = useMemo(
     () =>
-      navSections.map((section) => ({
-        ...section,
-        items: navigation.filter((item) => item.section === section.key),
+      groups.map((group) => ({
+        ...group,
+        items: navigation.filter((item) => item.section === group.key),
       })),
     [navigation]
   );
 
+  const filteredCommands = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return navigation;
+    return navigation.filter((item) => item.label.toLowerCase().includes(term));
+  }, [navigation, query]);
+
+  const currentItem = navigation.find((item) => item.path === currentPath) || navigation[0];
+
   function handleNavigate(path) {
     onNavigate(path);
     setMobileOpen(false);
+    setCommandOpen(false);
+    setQuery("");
   }
 
   return (
-    <div className="min-h-screen bg-app text-slate-100">
-      <div className="ambient-layer" />
+    <div className="app-root">
+      <div className="app-backdrop" />
+      <div className="relative flex min-h-screen">
+        <AnimatePresence>
+          {mobileOpen ? (
+            <>
+              <motion.button
+                aria-label="Close navigation overlay"
+                className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileOpen(false)}
+              />
+              <motion.aside
+                className="fixed inset-y-0 left-0 z-50 w-[88vw] max-w-[320px] lg:hidden"
+                initial={{ x: -32, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -32, opacity: 0 }}
+              >
+                <Sidebar
+                  groupedNavigation={groupedNavigation}
+                  currentPath={currentPath}
+                  onNavigate={handleNavigate}
+                  status={status}
+                  collapsed={false}
+                  mobile
+                  theme={theme}
+                  onToggleTheme={onToggleTheme}
+                  workspace={workspace}
+                />
+              </motion.aside>
+            </>
+          ) : null}
+        </AnimatePresence>
 
-      <div className="relative mx-auto flex min-h-screen max-w-[1700px] gap-4 px-3 py-3 lg:gap-6 lg:px-5 lg:py-5">
-        <aside className={`hidden shrink-0 xl:block ${collapsed ? "w-[108px]" : "w-[320px]"}`}>
+        <motion.aside
+          animate={{ width: collapsed ? 92 : 288 }}
+          className="hidden shrink-0 lg:block"
+        >
           <Sidebar
             groupedNavigation={groupedNavigation}
             currentPath={currentPath}
@@ -61,137 +129,161 @@ export function AppShell({
             status={status}
             collapsed={collapsed}
             onToggleCollapse={() => setCollapsed((value) => !value)}
+            theme={theme}
+            onToggleTheme={onToggleTheme}
+            workspace={workspace}
           />
-        </aside>
+        </motion.aside>
 
-        <div className="min-w-0 flex-1 space-y-4 lg:space-y-6">
-          <header className="shell-topbar">
+        <div className="min-w-0 flex-1">
+          <header className="topbar">
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setMobileOpen((value) => !value)}
-                className="icon-button xl:hidden"
-                aria-label="Toggle navigation"
-              >
-                {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              <button type="button" className="icon-button lg:hidden" aria-label="Open navigation" onClick={() => setMobileOpen(true)}>
+                <Menu className="h-5 w-5" />
               </button>
-
-              <div className="brand-mark">
-                <Bot className="h-6 w-6 text-slate-950" />
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="font-display text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                    OrbitOps Automation
-                  </h1>
-                  <span className="brand-badge">Pro Control</span>
-                </div>
-                <p className="mt-1 text-sm text-slate-400">
-                  Modern AI video operations for Telugu and English sports publishing.
-                </p>
+              <div className="hidden min-w-0 lg:block">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Workspace</p>
+                <h1 className="truncate text-lg font-semibold text-[var(--text-main)]">{currentItem.label}</h1>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <label className="glass-pill min-w-[160px] cursor-pointer justify-between">
-                <div>
-                  <p className="eyebrow-label">Language</p>
-                  <span className="mt-1 block text-sm text-white">{language === "en" ? "English" : "Telugu"}</span>
-                </div>
-                <select
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                  value={language}
-                  onChange={(event) => setLanguage(event.target.value)}
-                  disabled={Boolean(status?.running)}
-                >
-                  <option value="te">Telugu</option>
-                  <option value="en">English</option>
-                </select>
-                <ChevronDown className="h-4 w-4 text-slate-500" />
-              </label>
+            <button type="button" className="search-shell" onClick={() => setCommandOpen(true)} aria-label="Open command menu">
+              <Search className="h-4 w-4 text-slate-400" />
+              <span className="flex-1 text-left text-sm text-slate-400">Search actions, pages, topics...</span>
+              <span className="rounded-xl border border-[var(--border)] px-2 py-1 text-[11px] text-slate-400">Cmd + K</span>
+            </button>
 
-              <StatusBadge status={status} />
-
-              <div className="glass-pill gap-3">
-                {loading ? <LoaderCircle className="h-4 w-4 animate-spin text-cyan-300" /> : <Activity className="h-4 w-4 text-emerald-300" />}
-                <div>
-                  <p className="eyebrow-label">System</p>
-                  <p className="text-sm text-white">{loading ? "Syncing" : "Online"}</p>
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="hidden xl:block">
+                <StatusBadge status={status} />
               </div>
-
-              <div className="glass-pill gap-3">
-                <ShieldCheck className="h-5 w-5 text-amber-300" />
-                <div>
-                  <p className="eyebrow-label">Mode</p>
-                  <p className="text-sm text-white">Automation Guarded</p>
+              <button type="button" className="icon-button" aria-label="Notifications">
+                <Bell className="h-4 w-4" />
+              </button>
+              <button type="button" className="icon-button" aria-label="Toggle theme" onClick={onToggleTheme}>
+                {theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
+              </button>
+              <button type="button" className="primary-button h-11 px-4 text-sm" onClick={() => setCommandOpen(true)}>
+                <Command className="h-4 w-4" />
+                Quick Create
+              </button>
+              <button type="button" className="profile-chip" aria-label="Open profile menu">
+                <UserCircle2 className="h-8 w-8 text-[var(--text-main)]" />
+                <div className="hidden text-left sm:block">
+                  <p className="text-sm font-medium text-[var(--text-main)]">Operator</p>
+                  <p className="text-xs text-[var(--text-secondary)]">{workspace.plan}</p>
                 </div>
-              </div>
+              </button>
             </div>
           </header>
 
-          {mobileOpen ? (
-            <div className="xl:hidden">
-              <Sidebar
-                groupedNavigation={groupedNavigation}
-                currentPath={currentPath}
-                onNavigate={handleNavigate}
-                status={status}
-                mobile
-              />
+          {error ? (
+            <div className="px-4 pb-0 pt-4 sm:px-6 xl:px-8">
+              <div className="alert-banner">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-main)]">Sync issue detected</p>
+                  <p className="text-sm text-[var(--text-secondary)]">{error}</p>
+                </div>
+                <button type="button" className="secondary-button" onClick={onRetry}>
+                  Retry
+                </button>
+              </div>
             </div>
           ) : null}
 
-          {error ? <ToastBanner message={error} onRetry={onRetry} /> : null}
-
-          {children}
+          <main className="px-4 pb-28 pt-4 sm:px-6 xl:px-8">
+            {children}
+          </main>
         </div>
       </div>
+
+      <BottomNav navigation={navigation.slice(0, 5)} currentPath={currentPath} onNavigate={handleNavigate} />
+      <CommandDialog
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        query={query}
+        onQueryChange={setQuery}
+        items={filteredCommands}
+        onSelect={handleNavigate}
+        language={language}
+        setLanguage={setLanguage}
+        loading={loading}
+        quickActions={quickActions}
+      />
     </div>
   );
 }
 
-function Sidebar({ groupedNavigation, currentPath, onNavigate, status, collapsed = false, onToggleCollapse, mobile = false }) {
+function Sidebar({
+  groupedNavigation,
+  currentPath,
+  onNavigate,
+  status,
+  collapsed,
+  onToggleCollapse,
+  mobile = false,
+  theme,
+  onToggleTheme,
+  workspace,
+}) {
+  const WorkspaceIcon = workspace.icon;
+
   return (
-    <div className={`app-frame flex h-full flex-col px-3 py-4 ${mobile ? "" : "min-h-[calc(100vh-1.5rem)]"}`}>
-      <div className={`sidebar-brand ${collapsed ? "justify-center" : ""}`}>
-        <div className="brand-mark h-12 w-12">
-          <Sparkles className="h-5 w-5 text-slate-950" />
+    <div className={`sidebar-shell ${mobile ? "h-full" : "min-h-screen"}`}>
+      <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+        <div className="logo-mark">
+          <WorkspaceIcon className="h-5 w-5" />
         </div>
         {!collapsed ? (
           <div className="min-w-0 flex-1">
-            <p className="eyebrow-label">Operations</p>
-            <h2 className="font-display text-lg font-semibold text-white">Control Deck</h2>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">AI Workspace</p>
+            <h2 className="truncate text-base font-semibold text-[var(--text-main)]">{workspace.name}</h2>
           </div>
         ) : null}
-        {!mobile && onToggleCollapse ? (
-          <button type="button" onClick={onToggleCollapse} className="icon-button">
-            {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+        {!mobile ? (
+          <button type="button" className="icon-button" aria-label="Toggle sidebar width" onClick={onToggleCollapse}>
+            <ChevronRight className={`h-4 w-4 transition ${collapsed ? "" : "rotate-180"}`} />
           </button>
-        ) : null}
+        ) : (
+          <button type="button" className="icon-button" aria-label="Close navigation" onClick={() => onNavigate(currentPath)}>
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      <nav className="mt-6 space-y-5">
-        {groupedNavigation.map((section) => (
-          <div key={section.key}>
-            {!collapsed ? <p className="px-3 text-[11px] uppercase tracking-[0.24em] text-slate-500">{section.label}</p> : null}
+      <div className="mt-6 rounded-[24px] border border-[var(--border)] bg-white/5 p-4">
+        <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+          <div className={`h-2.5 w-2.5 rounded-full ${status?.failed ? "bg-[var(--danger)]" : status?.running ? "bg-[var(--warning)]" : "bg-[var(--success)]"}`} />
+          {!collapsed ? (
+            <div>
+              <p className="text-sm font-medium text-[var(--text-main)]">{status?.statusLabel || "Idle"}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{status?.currentStage || "Waiting for next event"}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <nav className="mt-6 flex-1 space-y-6 overflow-y-auto">
+        {groupedNavigation.map((group) => (
+          <div key={group.key}>
+            {!collapsed ? <p className="px-3 text-[11px] uppercase tracking-[0.24em] text-slate-500">{group.label}</p> : null}
             <div className="mt-2 space-y-1.5">
-              {section.items.map((item) => {
+              {group.items.map((item) => {
                 const Icon = item.icon;
-                const active = currentPath === item.path;
+                const active = item.path === currentPath;
                 return (
-                  <button
+                  <motion.button
                     key={item.key}
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={() => onNavigate(item.path)}
-                    className={`nav-item ${active ? "nav-item-active" : "nav-item-idle"} ${collapsed ? "justify-center px-0" : ""}`}
+                    className={`nav-button ${active ? "nav-button-active" : ""} ${collapsed ? "justify-center px-0" : ""}`}
                     title={collapsed ? item.label : undefined}
                   >
-                    <Icon className={`h-4 w-4 shrink-0 ${active ? "text-white" : "text-slate-400"}`} />
+                    <Icon className="h-4 w-4 shrink-0" />
                     {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                    {active && !collapsed ? <span className="ml-auto h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.75)]" /> : null}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -199,58 +291,118 @@ function Sidebar({ groupedNavigation, currentPath, onNavigate, status, collapsed
         ))}
       </nav>
 
-      <div className="mt-auto space-y-3">
-        <div className="sidebar-snapshot">
+      <div className="space-y-3 pt-6">
+        <button type="button" className={`secondary-button w-full justify-between ${collapsed ? "px-0" : ""}`} onClick={onToggleTheme}>
+          {collapsed ? (theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />) : <>
+            <span>{theme === "dark" ? "Switch to light" : "Switch to dark"}</span>
+            {theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
+          </>}
+        </button>
+        <div className={`upgrade-card ${collapsed ? "items-center px-3" : ""}`}>
+          <Crown className="h-5 w-5 text-amber-300" />
           {!collapsed ? (
             <>
-              <p className="eyebrow-label">Live Snapshot</p>
-              <div className="mt-4 space-y-3">
-                <SidebarMetric label="Status" value={status?.statusLabel || "Idle"} />
-                <SidebarMetric label="Stage" value={status?.currentStage || status?.progressLabel || "Queued"} />
-                <SidebarMetric label="Topic" value={status?.selectedTopic || "No topic selected"} />
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-main)]">Upgrade workspace</p>
+                <p className="text-xs text-[var(--text-secondary)]">Priority rendering and deeper analytics.</p>
               </div>
+              <button type="button" className="primary-button h-10 px-4 text-xs">Go Premium</button>
             </>
-          ) : (
-            <div className="flex justify-center">
-              <div className={`h-3 w-3 rounded-full ${status?.failed ? "bg-rose-400" : status?.running ? "bg-amber-300" : "bg-emerald-300"} shadow-[0_0_18px_currentColor]`} />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BottomNav({ navigation, currentPath, onNavigate }) {
+  return (
+    <div className="bottom-nav lg:hidden">
+      {navigation.map((item) => {
+        const Icon = item.icon;
+        const active = item.path === currentPath;
+        return (
+          <button key={item.key} type="button" onClick={() => onNavigate(item.path)} className={`bottom-nav-item ${active ? "bottom-nav-item-active" : ""}`}>
+            <Icon className="h-4 w-4" />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CommandDialog({ open, onClose, query, onQueryChange, items, onSelect, language, setLanguage, loading, quickActions }) {
+  return (
+    <AnimatePresence>
+      {open ? (
+        <>
+          <motion.button
+            type="button"
+            aria-label="Close command menu"
+            className="fixed inset-0 z-[70] bg-slate-950/70 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div
+            className="command-dialog"
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+          >
+            <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-4">
+              <Search className="h-4 w-4 text-slate-400" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(event) => onQueryChange(event.target.value)}
+                className="w-full bg-transparent text-sm text-[var(--text-main)] outline-none placeholder:text-slate-500"
+                placeholder="Jump to a page or action"
+              />
+              <button type="button" className="icon-button" onClick={onClose} aria-label="Close command menu">
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          )}
-        </div>
-
-        {!collapsed ? (
-          <div className="operator-note">
-            <p className="text-sm font-medium text-white">Operator flow</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
-              Monitor feeds, launch scripts, render video, and review uploads from a calmer production workspace.
-            </p>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function SidebarMetric({ label, value }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="max-w-[150px] text-right text-sm font-medium text-white">{value}</span>
-    </div>
-  );
-}
-
-function ToastBanner({ message, onRetry }) {
-  return (
-    <div className="rounded-[24px] border border-rose-500/20 bg-[linear-gradient(180deg,rgba(127,29,29,0.45),rgba(15,23,42,0.9))] px-4 py-4 text-sm text-rose-100 shadow-[0_20px_45px_rgba(15,23,42,0.28)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-medium text-white">Automation alert</p>
-          <p className="mt-1 text-rose-100/90">{message}</p>
-        </div>
-        <button type="button" onClick={onRetry} className="ghost-button border-rose-400/20 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20">
-          Retry
-        </button>
-      </div>
-    </div>
+            <div className="grid gap-4 p-4 md:grid-cols-[1.3fr_0.7fr]">
+              <div className="space-y-2">
+                {items.map((item) => (
+                  <button key={item.key} type="button" className="command-item" onClick={() => onSelect(item.path)}>
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+                {!items.length ? <div className="empty-state text-sm">No matching destinations.</div> : null}
+              </div>
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-[var(--border)] bg-white/5 p-4">
+                  <p className="text-sm font-semibold text-[var(--text-main)]">Quick actions</p>
+                  <div className="mt-3 space-y-2">
+                    {quickActions.map((action) => (
+                      <button key={action.key} type="button" className="command-item">
+                        <action.icon className="h-4 w-4" />
+                        <span>{action.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-[var(--border)] bg-white/5 p-4">
+                  <p className="text-sm font-semibold text-[var(--text-main)]">Workspace controls</p>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <span className="text-sm text-[var(--text-secondary)]">Language</span>
+                    <select className="select-shell w-[150px]" value={language} onChange={(event) => setLanguage(event.target.value)}>
+                      <option value="te">Telugu</option>
+                      <option value="en">English</option>
+                    </select>
+                  </div>
+                  <p className="mt-3 text-xs text-[var(--text-secondary)]">{loading ? "Refreshing dashboard snapshot..." : "Realtime system feed is connected."}</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      ) : null}
+    </AnimatePresence>
   );
 }

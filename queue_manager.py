@@ -21,6 +21,7 @@ class JobQueueManager:
         self._jobs: dict[str, dict[str, Any]] = {}
         self._current_job_id: str | None = None
         self._worker_started = False
+        self._load_state()
 
     def start(self, worker: Callable[[dict[str, Any]], None]) -> None:
         with self._lock:
@@ -43,6 +44,9 @@ class JobQueueManager:
                 "started_at": "",
                 "completed_at": "",
                 "error": "",
+                "current_stage": "queued",
+                "current_task": "Queued for processing",
+                "progress": 0.0,
             }
             self._queue.append(job)
             self._jobs[job_id] = job
@@ -57,6 +61,7 @@ class JobQueueManager:
             job = self._jobs[self._current_job_id]
             job["current_stage"] = stage
             job["current_task"] = detail
+            job["progress"] = _stage_progress(stage)
             self._persist_locked()
 
     def snapshot(self) -> dict[str, Any]:
@@ -72,6 +77,9 @@ class JobQueueManager:
                     self._current_job_id = job["id"]
                     job["status"] = "running"
                     job["started_at"] = datetime.now().isoformat()
+                    job["current_stage"] = "started"
+                    job["current_task"] = "Worker started"
+                    job["progress"] = _stage_progress("started")
                     self._persist_locked()
             if not job:
                 threading.Event().wait(1)
@@ -82,6 +90,7 @@ class JobQueueManager:
                 with self._lock:
                     job["status"] = "completed"
                     job["completed_at"] = datetime.now().isoformat()
+                    job["progress"] = 1.0
                     self._current_job_id = None
                     self._persist_locked()
                 publish_event("job_completed", f"Job completed: {job['mode']}.", {"job": self._serialize(job)})
@@ -90,6 +99,7 @@ class JobQueueManager:
                     job["status"] = "failed"
                     job["error"] = str(exc)
                     job["completed_at"] = datetime.now().isoformat()
+                    job["progress"] = _stage_progress("failed")
                     self._current_job_id = None
                     self._persist_locked()
                 publish_event("job_failed", f"Job failed: {job['mode']}.", {"job": self._serialize(job), "error": str(exc)})
@@ -125,6 +135,44 @@ class JobQueueManager:
             },
             QUEUE_FILE,
         )
+
+    def _load_state(self) -> None:
+        payload = load_json(QUEUE_FILE, default={}) or {}
+        jobs = payload.get("jobs", []) if isinstance(payload, dict) else []
+        if not isinstance(jobs, list):
+            jobs = []
+        self._jobs = {str(job.get("id")): dict(job) for job in jobs if isinstance(job, dict) and job.get("id")}
+        queued_job_ids = payload.get("queued_job_ids", []) if isinstance(payload, dict) else []
+        self._queue = deque(
+            [
+                self._jobs[job_id]
+                for job_id in queued_job_ids
+                if isinstance(job_id, str) and job_id in self._jobs and self._jobs[job_id].get("status") == "queued"
+            ]
+        )
+        current_job_id = payload.get("current_job_id") if isinstance(payload, dict) else None
+        self._current_job_id = current_job_id if isinstance(current_job_id, str) and current_job_id in self._jobs else None
+        if self._current_job_id and self._current_job_id in self._jobs:
+            current = self._jobs[self._current_job_id]
+            current["status"] = "queued"
+            current["current_task"] = "Recovered after restart"
+            self._queue.appendleft(current)
+            self._current_job_id = None
+
+
+def _stage_progress(stage: str) -> float:
+    mapping = {
+        "queued": 0.0,
+        "started": 0.05,
+        "news_fetched": 0.2,
+        "script_ready": 0.38,
+        "voice_generated": 0.56,
+        "video_created": 0.78,
+        "uploading": 0.9,
+        "completed": 1.0,
+        "failed": 1.0,
+    }
+    return mapping.get(stage, 0.1)
 
 
 job_queue = JobQueueManager()

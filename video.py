@@ -3,14 +3,15 @@ from __future__ import annotations
 import math
 import os
 import shutil
-import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
+from services.planning_service import build_render_plan
 from settings import ASSETS_DIR, TEMP_DIR, settings
+from subtitle_engine import SubtitleEngine
 from utils import get_logger
 
 logger = get_logger(__name__)
@@ -323,7 +324,7 @@ def build_video(
     logger.info("MoviePy configured with FFmpeg: %s", ffmpeg_binary)
 
     try:
-        from moviepy.editor import AudioFileClip, CompositeVideoClip, ImageClip, concatenate_videoclips
+        from moviepy.editor import AudioFileClip, CompositeVideoClip, ImageClip
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"MoviePy import failed: {exc}") from exc
 
@@ -331,12 +332,6 @@ def build_video(
 
     target_size = (1080, 1920) if vertical else (1920, 1080)
     fallback_image = str(image_path) if image_path else None
-    scene_texts = _split_scene_texts(script or "", highlights)
-    if not scene_texts:
-        raise ValueError("Script or highlights are required to build scenes")
-
-    visual_prompts = [item.strip() for item in (visual_queries or []) if str(item).strip()]
-    preferred_images = list(scene_image_paths or [])
 
     logger.info("Audio loaded: %s", audio_file)
 
@@ -350,42 +345,51 @@ def build_video(
         if duration <= 0:
             raise RuntimeError(f"Audio duration is invalid: {duration}")
 
-        scene_count = max(1, len(scene_texts))
-        per_scene = max(duration / scene_count, 2.5)
+        plan = build_render_plan(
+            script=script or "",
+            duration=duration,
+            highlights=highlights,
+            visual_queries=visual_queries,
+            scene_image_paths=scene_image_paths,
+            vertical=vertical,
+            background_image=fallback_image or "",
+            background_music=settings.background_music_path if settings.enable_background_music else "",
+        )
         prepared_dir = resolved_output_path.parent / "scenes"
         prepared_dir.mkdir(parents=True, exist_ok=True)
 
-        for index, scene_text in enumerate(scene_texts):
-            preferred_image = preferred_images[index] if index < len(preferred_images) else None
-            visual_query = visual_prompts[index] if index < len(visual_prompts) else scene_text
+        for scene in plan.scenes:
             scene_image = _build_scene_image(
-                index=index + 1,
+                index=scene.index,
                 target_size=target_size,
                 output_dir=prepared_dir,
-                scene_text=scene_text,
-                visual_query=visual_query,
-                preferred_image=preferred_image,
+                scene_text=scene.text,
+                visual_query=scene.visual_query,
+                preferred_image=scene.preferred_image or None,
                 fallback_image=fallback_image,
             )
-            clip = ImageClip(str(scene_image)).set_duration(per_scene).resize(lambda t: 1 + (0.03 * min(t / per_scene, 1)))
-            clip = clip.crossfadein(0.25).crossfadeout(0.25)
+            clip = (
+                ImageClip(str(scene_image))
+                .set_start(scene.start)
+                .set_duration(scene.duration)
+                .resize(lambda t: 1 + (0.035 * min(t / max(scene.duration, 0.2), 1)))
+                .crossfadein(min(0.25, scene.duration / 3))
+                .crossfadeout(min(0.25, scene.duration / 3))
+            )
             base_clips.append(clip)
 
-        video_track = concatenate_videoclips(base_clips, method="compose").set_duration(duration)
-        subtitle_items = _chunk_subtitles(script or "", scene_texts)
-        if settings.enable_subtitles and subtitle_items:
-            subtitle_duration = max(duration / len(subtitle_items), 2.5)
-            cursor = 0.0
-            for index, text in enumerate(subtitle_items):
-                subtitle_image = _create_subtitle_image(text, target_size, prepared_dir, index + 1)
+        video_track = CompositeVideoClip(base_clips, size=target_size).set_duration(duration)
+        if settings.enable_subtitles and plan.subtitles:
+            SubtitleEngine().build_srt(plan.subtitles, resolved_output_path.with_suffix(".srt"))
+            for cue in plan.subtitles:
+                subtitle_image = _create_subtitle_image(cue.text, target_size, prepared_dir, cue.index)
                 subtitle_clip = (
                     ImageClip(str(subtitle_image))
-                    .set_start(cursor)
-                    .set_duration(min(subtitle_duration, max(duration - cursor, 0.1)))
+                    .set_start(cue.start)
+                    .set_duration(min(max(cue.end - cue.start, 0.15), max(duration - cue.start, 0.1)))
                     .set_position(("center", "bottom"))
                 )
                 subtitle_clips.append(subtitle_clip)
-                cursor += subtitle_duration
 
         final_layers = [video_track] + subtitle_clips
         final_clip = CompositeVideoClip(final_layers, size=target_size).set_audio(audio_clip).set_duration(duration)

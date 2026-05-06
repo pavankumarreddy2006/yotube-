@@ -36,6 +36,7 @@ class Settings:
     cloudinary_api_secret: str = os.getenv("CLOUDINARY_API_SECRET", "")
     cloudinary_folder: str = os.getenv("CLOUDINARY_FOLDER", "youtube-automation")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    api_key: str = os.getenv("APP_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     openai_tts_model: str = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
     openai_tts_voice: str = os.getenv("OPENAI_TTS_VOICE", "alloy")

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import random
 import shutil
+import struct
 import subprocess
 import sys
 import threading
+import wave
 from datetime import datetime
 from pathlib import Path
 from difflib import SequenceMatcher
@@ -1096,20 +1099,11 @@ def run_test_mode(language: str | None = None) -> None:
     work_dir = OUTPUT_DIR / "test_mode"
     work_dir.mkdir(parents=True, exist_ok=True)
     sample_video = work_dir / "output.mp4"
-
-    existing_audio = next(OUTPUT_DIR.rglob("*.mp3"), None)
-    existing_image = next(OUTPUT_DIR.rglob("*.jpg"), None)
-    if existing_audio and existing_image:
-        audio_path = str(existing_audio)
-        thumbnail_path = str(existing_image)
-    else:
-        content = _fallback_package(normalized_language)
-        sample_audio = work_dir / "sample.mp3"
-        sample_image = work_dir / "sample.jpg"
-        thumbnail_path = str(create_thumbnail("TEST MODE", content.thumbnail_idea, sample_image))
-        audio_path = generate_voice_track("This is a pipeline test for audio to video generation.", sample_audio, "en")
-        if not audio_path:
-            raise RuntimeError("Test mode could not create sample audio.")
+    content = _fallback_package(normalized_language)
+    sample_audio = work_dir / "sample.wav"
+    sample_image = work_dir / "sample.jpg"
+    thumbnail_path = str(create_thumbnail("TEST MODE", content.thumbnail_idea, sample_image))
+    audio_path = _create_test_audio(sample_audio, duration_seconds=4)
 
     video_path = create_video(
         audio_path=audio_path,
@@ -1126,6 +1120,21 @@ def run_test_mode(language: str | None = None) -> None:
 
     send_stage_notification("video_created", f"Test video created at {video_path}")
     send_stage_notification("all_done", "Telegram test message sent successfully.")
+
+
+def _create_test_audio(path: Path, duration_seconds: int = 4) -> str:
+    sample_rate = 22050
+    frequency = 440.0
+    amplitude = 14000
+    total_frames = sample_rate * duration_seconds
+    with wave.open(str(path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        for index in range(total_frames):
+            value = int(amplitude * math.sin(2 * math.pi * frequency * (index / sample_rate)))
+            wav_file.writeframes(struct.pack("<h", value))
+    return str(path)
 
 
 def main() -> None:

@@ -5,11 +5,12 @@ import hashlib
 import json
 import threading
 import time
+from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +38,9 @@ LOG_FILE = BASE_DIR / "logs.txt"
 STATUS_FILE = OUTPUT_DIR / "pipeline_status.json"
 LATEST_RUN_FILE = OUTPUT_DIR / "latest_run.json"
 SCHEDULER_STARTED = False
+_RATE_WINDOW_SECONDS = 60
+_RATE_LIMIT_PER_WINDOW = 120
+_REQUEST_HISTORY: dict[str, deque[float]] = defaultdict(deque)
 
 
 class AutomationRunRequest(BaseModel):
@@ -186,6 +190,23 @@ def _load_status() -> dict[str, Any]:
     return status
 
 
+def _validate_request(request: Request) -> None:
+    configured_api_key = settings.openai_api_key[:0]
+    configured_api_key = getattr(settings, "api_key", "") if hasattr(settings, "api_key") else configured_api_key
+    required_api_key = str(configured_api_key or "").strip()
+    if required_api_key and request.headers.get("x-api-key", "").strip() != required_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    client_id = request.client.host if request.client else "unknown"
+    now = time.time()
+    bucket = _REQUEST_HISTORY[client_id]
+    while bucket and now - bucket[0] > _RATE_WINDOW_SECONDS:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT_PER_WINDOW:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    bucket.append(now)
+
+
 def _build_news_payload() -> dict[str, Any]:
     latest_content = _latest_content_payload()
     selected_topic = latest_content.get("selected_topic") or {}
@@ -297,6 +318,16 @@ async def on_startup() -> None:
     _ensure_scheduler_started()
 
 
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    _validate_request(request)
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
+
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse({"status": "ok", "message": "AI Sports Automation API running"})
@@ -381,6 +412,11 @@ async def post_run(run_request: AutomationRunRequest) -> JSONResponse:
     return await start_automation(run_request)
 
 
+@app.post("/generate-video")
+async def generate_video(run_request: AutomationRunRequest) -> JSONResponse:
+    return await start_automation(run_request)
+
+
 @app.post("/upload")
 async def upload_latest() -> JSONResponse:
     runtime = get_runtime_settings()
@@ -406,6 +442,12 @@ async def ask_ai(payload: PromptRequest) -> JSONResponse:
 @app.post("/ask")
 async def ask_alias(payload: PromptRequest) -> JSONResponse:
     return await ask_ai(payload)
+
+
+@app.post("/render-thumbnail")
+async def render_thumbnail_endpoint(payload: PromptRequest) -> JSONResponse:
+    prompt = _build_prompt(payload.topic, language=normalize_language(payload.language), mode=payload.mode)
+    return JSONResponse({"status": "ready", "thumbnail_text": prompt["topic"][:48], "prompt": prompt["prompt"]})
 
 
 @app.get("/events")
