@@ -5,6 +5,7 @@ export default function VideoManagerPage({ dashboard }) {
   const { status, runNow, actionState } = dashboard;
   const previewItems = status?.previewItems || [];
   const uploadItems = status?.youtubeLinks || [];
+  const running = Boolean(status?.running) || actionState.auto;
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -12,8 +13,8 @@ export default function VideoManagerPage({ dashboard }) {
         title="Video Preview"
         description="Frontend-served preview artifacts from the latest completed run, optimized for quick review."
         actions={
-          <button type="button" onClick={runNow} disabled={Boolean(status?.running) || actionState.run} className="ghost-button">
-            <RefreshCcw className={`h-4 w-4 ${actionState.run ? "animate-spin" : ""}`} />
+          <button type="button" onClick={runNow} disabled={running} className="ghost-button">
+            <RefreshCcw className={`h-4 w-4 ${running ? "animate-spin" : ""}`} />
             <span>Run again</span>
           </button>
         }
@@ -72,7 +73,7 @@ export default function VideoManagerPage({ dashboard }) {
         title="Publishing Status"
         description="Tracks upload URLs, current stage, and the latest runtime output state."
         actions={
-          <button type="button" onClick={runNow} disabled={Boolean(status?.running) || actionState.run} className="action-gradient">
+          <button type="button" onClick={runNow} disabled={running} className="action-gradient">
             <Rocket className="h-4 w-4" />
             <span>Start pipeline</span>
           </button>

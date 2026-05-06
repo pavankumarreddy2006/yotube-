@@ -289,7 +289,32 @@ def _dashboard_payload() -> dict[str, Any]:
 
 def _launch_pipeline(mode: str, language: str, prompt: str = "") -> dict[str, str]:
     job = job_queue.enqueue(mode=mode, language=language, prompt=prompt)
-    return {"status": "queued", "mode": mode, "language": language, "job_id": job["id"]}
+    return {
+        "status": "queued",
+        "message": "Automation job queued successfully.",
+        "mode": mode,
+        "language": language,
+        "job_id": job["id"],
+        "queue": job_queue.snapshot(),
+    }
+
+
+def _recent_videos_payload() -> dict[str, Any]:
+    status = _load_status()
+    items = []
+    for index, item in enumerate(status.get("preview_items", []) or []):
+        payload = _as_mapping(item)
+        items.append(
+            {
+                "id": payload.get("url") or f"video-{index}",
+                "label": payload.get("label") or f"Video {index + 1}",
+                "url": payload.get("url", ""),
+                "variant": payload.get("variant", "short"),
+                "status": "ready",
+                "thumbnail_url": status.get("thumbnail_url", ""),
+            }
+        )
+    return {"items": items}
 
 
 def _intelligence_candidates(latest_content: dict[str, Any], latest_run: dict[str, Any]) -> list[TopicCandidate]:
@@ -410,6 +435,11 @@ async def get_news() -> JSONResponse:
 @app.get("/logs")
 async def logs() -> JSONResponse:
     return JSONResponse({"items": _load_logs()})
+
+
+@app.get("/recent-videos")
+async def recent_videos() -> JSONResponse:
+    return JSONResponse(_recent_videos_payload())
 
 
 @app.get("/runtime-settings")
@@ -609,6 +639,7 @@ async def frontend_routes(full_path: str) -> FileResponse:
             "queue",
             "events",
             "dashboard-state",
+            "recent-videos",
             "output",
             "static",
         )

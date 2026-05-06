@@ -4,11 +4,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from settings import BASE_DIR, settings
+from settings import OUTPUT_DIR, settings
 from utils import dump_json, load_json
 
 
-RUNTIME_SETTINGS_FILE = BASE_DIR / "output" / "runtime_settings.json"
+RUNTIME_SETTINGS_FILE = OUTPUT_DIR / "runtime_settings.json"
 
 
 @dataclass

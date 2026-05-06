@@ -46,7 +46,6 @@ def send_telegram(message: str) -> None:
         return
 
     validate_telegram_config()
-    logger.info("Sending Telegram")
     response = requests.post(
         _telegram_url("sendMessage"),
         json={
@@ -65,13 +64,13 @@ def send_telegram(message: str) -> None:
     if response.status_code >= 400 or not payload.get("ok"):
         description = payload.get("description", "Unknown Telegram API error")
         if "chat not found" in description.lower():
-            description = f"{description}. Ensure the bot is started by the user and the CHAT ID is correct."
+            description = f"{description}. Ensure the bot is started by the user and the chat ID is correct."
         raise RuntimeError(description)
 
 
 def send_stage_notification(stage: str, detail: str = "") -> None:
     prefix = STAGE_LABELS.get(stage, stage.upper())
-    message = "CreatorOS AI\n\n" + (prefix if not detail else f"{prefix}\n\n{detail}")
+    message = "CreatorOS AI Studio\n\n" + (prefix if not detail else f"{prefix}\n\n{detail}")
     try:
         send_telegram(message)
     except Exception as exc:  # noqa: BLE001

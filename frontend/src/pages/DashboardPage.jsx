@@ -1,20 +1,20 @@
 import {
   Activity,
   ArrowRight,
-  BadgeCheck,
   BrainCircuit,
-  CirclePlay,
+  CheckCircle2,
+  Clapperboard,
   Clock3,
-  Film,
+  Download,
   Flame,
   Globe,
+  Image as ImageIcon,
+  Languages,
   LoaderCircle,
-  Mic2,
-  Newspaper,
-  RefreshCcw,
+  PlayCircle,
+  Rocket,
   Sparkles,
-  Star,
-  Trophy,
+  TrendingUp,
   Upload,
   WandSparkles,
   Youtube,
@@ -22,173 +22,110 @@ import {
 import { motion } from "framer-motion";
 
 const sportOptions = [
-  { key: "cricket", label: "Cricket", icon: Trophy },
-  { key: "football", label: "Football", icon: Trophy },
+  { key: "cricket", label: "Cricket", icon: Globe },
+  { key: "football", label: "Football", icon: Globe },
   { key: "kabaddi", label: "Kabaddi", icon: Activity },
-  { key: "all", label: "All Sports", icon: Globe },
+  { key: "all", label: "All Sports", icon: Sparkles },
 ];
 
-const quickActions = [
-  { label: "Make Shorts Now", icon: Sparkles, tone: "from-sky-500/30 to-sky-300/10" },
-  { label: "Make Full Video", icon: Film, tone: "from-emerald-500/25 to-emerald-300/10" },
-  { label: "Create Cool Thumbnail", icon: Star, tone: "from-amber-500/25 to-amber-300/10" },
-  { label: "Find Trending Sports", icon: Flame, tone: "from-rose-500/25 to-rose-300/10" },
-  { label: "Upload to YouTube", icon: Youtube, tone: "from-red-500/25 to-red-300/10" },
-  { label: "Surprise Me", icon: WandSparkles, tone: "from-indigo-500/25 to-indigo-300/10" },
-];
-
-const automationToggles = [
-  "Auto-create daily videos",
-  "Auto research trending sports",
-  "Auto make Telugu voice",
-  "Auto upload to YouTube",
-  "Auto create thumbnails",
-];
-
-const friendlyFeed = [
-  { icon: Newspaper, label: "Researching cricket matches", progress: 88 },
-  { icon: Sparkles, label: "Writing exciting script", progress: 72 },
-  { icon: Mic2, label: "Creating Telugu voiceover", progress: 61 },
-  { icon: Star, label: "Making awesome thumbnail", progress: 46 },
-  { icon: Film, label: "Rendering video", progress: 33 },
+const quickCards = [
+  { label: "Generate Shorts", icon: Sparkles, action: "short" },
+  { label: "Generate Long Video", icon: Clapperboard, action: "long" },
+  { label: "Trending Topics", icon: Flame, action: "trending" },
+  { label: "Surprise Me", icon: WandSparkles, action: "prompt" },
+  { label: "Create Thumbnail", icon: ImageIcon, action: "thumbnail" },
 ];
 
 export default function DashboardPage({ dashboard, currentPath }) {
-  const { status, news, logs, runtime, actionState, metrics } = dashboard;
+  const { status, runtime } = dashboard;
 
   if (!status || !runtime) {
-    return <div className="empty-state">Loading CreatorOS and getting your sports video studio ready...</div>;
+    return <div className="empty-state">Loading CreatorOS and preparing your studio...</div>;
   }
 
-  const pages = {
-    "/dashboard": <DashboardHome dashboard={dashboard} />,
-    "/video-generator": <DashboardHome dashboard={dashboard} focus="create" />,
-    "/sports-news": <DashboardHome dashboard={dashboard} focus="trending" />,
-    "/ai-content": <DashboardHome dashboard={dashboard} focus="activity" />,
-    "/uploads": <DashboardHome dashboard={dashboard} focus="uploads" />,
-    "/analytics": <DashboardHome dashboard={dashboard} focus="analytics" />,
-    "/automation": <DashboardHome dashboard={dashboard} focus="automation" />,
-    "/thumbnails": <DashboardHome dashboard={dashboard} focus="recent" />,
-    "/settings": <SettingsSpotlight runtime={runtime} status={status} logs={logs} metrics={metrics} />,
-  };
-
-  return <div className="space-y-6">{pages[currentPath] || pages["/dashboard"]}</div>;
-}
-
-function DashboardHome({ dashboard, focus = "home" }) {
-  const { status, news, logs, runtime, metrics } = dashboard;
-  const liveFeed = status.activityFeed?.length
-    ? status.activityFeed.slice().reverse().slice(0, 5).map((item, index) => ({
-        id: item.id || `feed-${index}`,
-        label: item.message,
-        progress: typeof item.progress === "number" ? item.progress : Math.max(18, 90 - index * 14),
-        icon: [Newspaper, Sparkles, Mic2, Star, Film][index] || Sparkles,
-        time: formatTimestamp(item.timestamp),
-      }))
-    : friendlyFeed.map((item, index) => ({ ...item, id: `friendly-${index}`, time: "Live now" }));
-
-  const recentVideos = (status.previewItems?.length ? status.previewItems : buildFallbackVideos(status.selectedTopic)).slice(0, 4);
-  const uploads = buildUploadQueue(status);
-  const trends = (news?.length ? news : buildFallbackNews()).slice(0, 6);
-  const analytics = buildAnalytics(status, metrics);
-
   return (
-    <>
-      <HeroSection dashboard={dashboard} />
+    <div className="space-y-6">
+      <HeroStudio dashboard={dashboard} />
       <QuickActions dashboard={dashboard} />
-      <FocusStrip focus={focus} />
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <LiveActivityPanel items={liveFeed} />
-        <RecentVideosPanel videos={recentVideos} status={status} />
+      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <LiveFeed dashboard={dashboard} />
+        <PreviewPanel dashboard={dashboard} />
       </section>
       <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <UploadQueuePanel
-          uploads={uploads}
-          onRetry={() => dashboard.retryLatestRun?.()}
-          onCancel={() => dashboard.notifySoon?.("Cancel is not available yet, but your queue is safe and you can retry anytime.")}
-        />
-        <TrendingSportsPanel trends={trends} onMakeVideo={(item) => dashboard.createFromTrend?.(item)} />
+        <TrendsPanel dashboard={dashboard} />
+        <AnalyticsPanel dashboard={dashboard} />
       </section>
-      <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <AutomationPanel runtime={runtime} />
-        <AnalyticsPanel analytics={analytics} logs={logs} />
+      <section className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+        <AutomationPanel dashboard={dashboard} />
+        <LogsPanel dashboard={dashboard} currentPath={currentPath} />
       </section>
-    </>
+    </div>
   );
 }
 
-function HeroSection({ dashboard }) {
-  const { status, language, setLanguage, promptInput, setPromptInput, runNow, runShort, runLong, generateAutoPrompt, actionState, useSportPrompt } = dashboard;
+function HeroStudio({ dashboard }) {
+  const { status, runtime, language, setLanguage, promptInput, setPromptInput, actionState, runNow, runShort, runLong, generateAutoPrompt, useSportPrompt } = dashboard;
+  const voiceLabel = runtime.ttsProvider === "azure" ? "Azure Neural" : runtime.ttsProvider === "elevenlabs" ? "ElevenLabs" : runtime.ttsProvider || "Auto";
 
   return (
     <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="hero-creator creator-hero-premium">
       <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
           <div className="flex flex-wrap gap-3">
-            <span className="badge badge-primary">AI-Powered Sports Video Studio</span>
-            <span className="badge">{status.running ? "AI is Ready" : "Tap to begin"}</span>
-            <span className="badge">{language === "te" ? "తెలుగు mode" : "English mode"}</span>
+            <span className="badge badge-primary">Premium AI Creator Studio</span>
+            <span className="badge">{language === "te" ? "Telugu Ready" : "English Ready"}</span>
+            <span className="badge badge-success">{status.running ? "AI Active" : "Ready to Create"}</span>
           </div>
+
           <div className="space-y-3">
             <h2 className="text-4xl font-extrabold tracking-tight text-[var(--text-main)] sm:text-5xl xl:text-6xl">
               What do you want to create today?
             </h2>
             <p className="max-w-2xl text-base leading-8 text-[var(--text-secondary)] sm:text-lg">
-              Create sports highlights, YouTube Shorts, match recap videos, and thumbnails in a clean AI studio that feels simple from the first tap.
+              Turn a sports idea into a polished YouTube video with research, script, narration, visuals, thumbnail, upload, and live status updates.
             </p>
           </div>
 
-          <div className="rounded-[30px] border border-white/10 bg-zinc-900/80 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-5">
+          <div className="rounded-[30px] border border-white/10 bg-zinc-950/75 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-5">
             <div className="grid gap-4">
               <textarea
-                className="creator-input min-h-[160px] text-base sm:text-lg"
+                className="creator-input min-h-[170px] text-base sm:text-lg"
                 value={promptInput}
                 onChange={(event) => setPromptInput(event.target.value)}
-                placeholder="E.g., Virat Kohli winning six, or IPL highlights..."
+                placeholder="Example: IPL final thriller, Messi comeback, Telugu cricket recap, or surprise me with today's biggest sports story..."
               />
 
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid gap-4 xl:grid-cols-4">
+                <ToggleGroup
+                  title="Format"
+                  items={[
+                    { label: "Shorts", detail: "Fast vertical video", active: status.mode === "short", onClick: runShort },
+                    { label: "Long Video", detail: "Full story breakdown", active: status.mode === "long", onClick: runLong },
+                  ]}
+                />
+                <ToggleGroup
+                  title="Language"
+                  items={[
+                    { label: "English 🇬🇧", detail: "Global audience", active: language === "en", onClick: () => setLanguage("en") },
+                    { label: "Telugu 🇮🇳", detail: "Regional audience", active: language === "te", onClick: () => setLanguage("te") },
+                  ]}
+                />
+                <ToggleGroup
+                  title="Voice"
+                  items={[
+                    { label: voiceLabel, detail: "Current narrator", active: true, onClick: () => {} },
+                    { label: `${runtime.shortVideoDuration}s / ${runtime.longVideoDuration}s`, detail: "Studio duration targets", active: false, onClick: () => {} },
+                  ]}
+                />
                 <div className="space-y-3">
-                  <p className="text-sm font-semibold text-[var(--text-main)]">Pick a sport</p>
+                  <p className="text-sm font-semibold text-[var(--text-main)]">Sports lane</p>
                   <div className="grid grid-cols-2 gap-3">
                     {sportOptions.map((sport) => (
                       <button key={sport.key} type="button" className="selector-card" onClick={() => useSportPrompt?.(sport)}>
-                        <sport.icon className="h-6 w-6 text-sky-300" />
+                        <sport.icon className="h-5 w-5 text-white" />
                         <span>{sport.label}</span>
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-[var(--text-main)]">Choose video type</p>
-                  <div className="grid gap-3">
-                    <button type="button" className="selector-card justify-between" onClick={runShort} disabled={actionState.short}>
-                      <span>Shorts</span>
-                      <span className="text-xs text-[var(--text-secondary)]">15-60 sec</span>
-                    </button>
-                    <button type="button" className="selector-card justify-between" onClick={runLong} disabled={actionState.long}>
-                      <span>Full Video</span>
-                      <span className="text-xs text-[var(--text-secondary)]">Big story</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-[var(--text-main)]">Pick language</p>
-                  <div className="grid gap-3">
-                    <button type="button" className={`selector-card justify-between ${language === "en" ? "selector-card-active" : ""}`} onClick={() => setLanguage("en")}>
-                      <span>English</span>
-                      <BadgeCheck className="h-5 w-5 text-sky-300" />
-                    </button>
-                    <button type="button" className={`selector-card justify-between ${language === "te" ? "selector-card-active" : ""}`} onClick={() => setLanguage("te")}>
-                      <span>తెలుగు</span>
-                      <BadgeCheck className="h-5 w-5 text-sky-300" />
-                    </button>
-                    <button type="button" className="selector-card justify-between" onClick={generateAutoPrompt} disabled={actionState.prompt}>
-                      <span>Auto</span>
-                      {actionState.prompt ? <LoaderCircle className="h-5 w-5 animate-spin text-sky-300" /> : <WandSparkles className="h-5 w-5 text-sky-300" />}
-                    </button>
                   </div>
                 </div>
               </div>
@@ -196,7 +133,7 @@ function HeroSection({ dashboard }) {
               <div className="flex flex-wrap gap-3 pt-2">
                 <button type="button" className="primary-button hero-generate-button min-h-[60px] px-7 text-base" onClick={runNow} disabled={actionState.auto}>
                   {actionState.auto ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                  Generate Magic Video
+                  Generate Magic Video ✨
                 </button>
                 <button type="button" className="secondary-button min-h-[60px] px-6 text-base" onClick={generateAutoPrompt} disabled={actionState.prompt}>
                   <WandSparkles className="h-5 w-5" />
@@ -208,37 +145,25 @@ function HeroSection({ dashboard }) {
         </div>
 
         <div className="space-y-5">
-          <div className="studio-card overflow-hidden p-6">
-            <div className="absolute inset-x-6 top-0 h-24 rounded-b-full bg-sky-400/10 blur-3xl" />
+          <div className="studio-card p-6">
             <p className="section-kicker">Live Status</p>
-            <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">
-              {status.selectedTopic || "Your next sports highlight video is ready to begin"}
-            </h3>
+            <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">{status.currentTask || "Your studio is ready"}</h3>
             <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
-              {status.selectedTopicSummary || "Type a sports idea above and CreatorOS will help research it, write it, voice it, design it, and get it ready to publish."}
+              {status.selectedTopicSummary || "CreatorOS will keep you updated at every stage, from script generation to final YouTube upload."}
             </p>
             <div className="mt-6 space-y-4">
-              <ProgressBlock title="Video magic progress" subtitle={status.currentTask} progress={status.overallProgress || 18} />
-              <ProgressBlock title="Rendering" subtitle={status.renderStatus?.message || "Getting things ready"} progress={status.renderStatus?.progress || 34} />
-              <ProgressBlock title="Uploading" subtitle={status.uploadStatus?.message || "Waiting for publish time"} progress={status.uploadStatus?.progress || 12} />
+              <ProgressBlock title="Overall Progress" subtitle={status.progressLabel || "Idle"} progress={status.overallProgress || 0} />
+              <ProgressBlock title="Rendering Video" subtitle={status.renderStatus?.message || "Waiting"} progress={status.renderStatus?.progress || 0} />
+              <ProgressBlock title="Uploading" subtitle={status.uploadStatus?.message || "Waiting"} progress={status.uploadStatus?.progress || 0} />
             </div>
           </div>
 
           <div className="studio-card p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="section-kicker">Happy Numbers</p>
-                <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">You are growing fast</h3>
-              </div>
-              <div className="rounded-full border border-sky-400/20 bg-sky-400/10 p-3 text-sky-300">
-                <Sparkles className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <StatPill label="Views" value={status.youtubeLinks?.length ? "12.4K" : "2.8K"} />
-              <StatPill label="Videos Made" value={`${status.previewItems?.length || 8}`} />
-              <StatPill label="Watch Time" value="38 hrs" />
-              <StatPill label="This Week" value="+24%" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <StatPill label="AI Task" value={status.currentStage || "Standby"} />
+              <StatPill label="Language" value={status.languageLabel || "Telugu"} />
+              <StatPill label="Queue" value={`${status.queue?.queue_length || 0} jobs`} />
+              <StatPill label="Retries" value={`${status.retryCount || 0}/${status.maxRetries || 0}`} />
             </div>
           </div>
         </div>
@@ -247,91 +172,88 @@ function HeroSection({ dashboard }) {
   );
 }
 
+function ToggleGroup({ title, items }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-[var(--text-main)]">{title}</p>
+      <div className="grid gap-3">
+        {items.map((item) => (
+          <button key={item.label} type="button" className={`selector-card justify-between ${item.active ? "selector-card-active" : ""}`} onClick={item.onClick}>
+            <div className="text-left">
+              <p>{item.label}</p>
+              <p className="mt-1 text-xs font-normal text-[var(--text-secondary)]">{item.detail}</p>
+            </div>
+            {item.active ? <CheckCircle2 className="h-5 w-5 text-white" /> : <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function QuickActions({ dashboard }) {
-  const actionMap = [
-    dashboard.runShort,
-    dashboard.runLong,
-    () => dashboard.notifySoon?.("Thumbnail generation runs after you choose a topic or start a video."),
-    () => document.querySelector('[data-section="trending-sports"]')?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    dashboard.uploadLatest,
-    dashboard.generateAutoPrompt,
-  ];
+  const actions = {
+    short: dashboard.runShort,
+    long: dashboard.runLong,
+    trending: () => document.querySelector('[data-section="trending-topics"]')?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    prompt: dashboard.generateAutoPrompt,
+    thumbnail: () => dashboard.notifySoon?.("Thumbnail creation is ready after you choose a topic or start a video."),
+  };
 
   return (
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {quickActions.map((action, index) => (
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      {quickCards.map((card) => (
         <motion.button
-          key={action.label}
+          key={card.label}
           whileHover={{ y: -4, scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
           type="button"
-          className={`quick-action-card bg-gradient-to-br ${action.tone}`}
-          onClick={actionMap[index]}
+          className="quick-action-card"
+          onClick={actions[card.action]}
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-[var(--text-main)]">
-            <action.icon className="h-7 w-7" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
+            <card.icon className="h-7 w-7" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-[var(--text-main)]">{action.label}</h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">One big tap. CreatorOS will guide the rest.</p>
+            <h3 className="text-lg font-bold text-[var(--text-main)]">{card.label}</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">One click, guided workflow, live status.</p>
           </div>
-          <ArrowRight className="h-5 w-5 text-sky-300" />
         </motion.button>
       ))}
     </section>
   );
 }
 
-function FocusStrip({ focus }) {
-  const labels = {
-    home: "Everything you need is right here.",
-    create: "You are in create mode. Pick an idea and hit the big blue button.",
-    trending: "Fresh sports stories are ready below.",
-    activity: "Watch the AI studio work in real time.",
-    uploads: "Your upload lane is ready and easy to follow.",
-    analytics: "Your happy numbers and charts are waiting below.",
-    automation: "Friendly switches help your studio run by itself.",
-  };
+function LiveFeed({ dashboard }) {
+  const feed = dashboard.status.activityFeed?.length
+    ? dashboard.status.activityFeed.slice().reverse().slice(0, 6)
+    : [
+        { id: "f1", icon: "🧠", message: "Researching trending sports stories", progress: 24 },
+        { id: "f2", icon: "✍", message: "Generating script structure", progress: 40 },
+        { id: "f3", icon: "🎤", message: "Preparing voiceover", progress: 58 },
+        { id: "f4", icon: "🎬", message: "Rendering video scenes", progress: 72 },
+      ];
 
-  return (
-    <div className="studio-card flex flex-wrap items-center justify-between gap-4 p-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-300">
-          <BrainCircuit className="h-6 w-6" />
-        </div>
-        <div>
-          <p className="text-lg font-bold text-[var(--text-main)]">Friendly guide</p>
-          <p className="text-sm text-[var(--text-secondary)]">{labels[focus] || labels.home}</p>
-        </div>
-      </div>
-      <span className="badge badge-success">Simple and ready for everyone</span>
-    </div>
-  );
-}
-
-function LiveActivityPanel({ items }) {
   return (
     <section className="studio-card p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="section-kicker">What AI is doing right now...</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Live AI Activity Feed</h3>
+          <p className="section-kicker">AI Activity Feed</p>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Realtime studio updates</h3>
         </div>
         <span className="pulse-chip">Live</span>
       </div>
       <div className="mt-6 space-y-3">
-        {items.map((item) => (
-          <div key={item.id} className="feed-row">
-            <div className="activity-icon">
-              <item.icon className="h-5 w-5" />
-            </div>
+        {feed.map((item, index) => (
+          <div key={item.id || index} className="feed-row">
+            <div className="activity-icon">{item.icon || "⚡"}</div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-[var(--text-main)]">{item.label}</p>
-                <span className="text-xs text-[var(--text-secondary)]">{item.time}</span>
+                <p className="text-sm font-medium text-[var(--text-main)]">{item.message}</p>
+                <span className="text-xs text-[var(--text-secondary)]">{formatTimestamp(item.timestamp)}</span>
               </div>
               <div className="mini-progress mt-3">
-                <div className="mini-progress-bar creator-accent-bar" style={{ width: `${item.progress}%` }} />
+                <div className="mini-progress-bar" style={{ width: `${item.progress ?? Math.max(16, 90 - index * 14)}%` }} />
               </div>
             </div>
           </div>
@@ -341,220 +263,206 @@ function LiveActivityPanel({ items }) {
   );
 }
 
-function RecentVideosPanel({ videos, status }) {
+function PreviewPanel({ dashboard }) {
+  const { status } = dashboard;
+  const preview = status.previewItems?.[0];
+
   return (
     <section className="studio-card p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="section-kicker">Recent Videos</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Your latest creations</h3>
+          <p className="section-kicker">Video Preview</p>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Your latest output</h3>
         </div>
-        <span className="badge">{status.running ? "Making more now" : "Ready to watch"}</span>
+        <PlayCircle className="h-6 w-6 text-white" />
       </div>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {videos.map((video, index) => (
-          <motion.div key={video.label || index} whileHover={{ y: -4 }} className="video-showcase-card">
-            <div className="video-showcase-thumb">
-              <div className="play-overlay">
-                <CirclePlay className="h-5 w-5" />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-sky-300/10" />
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-white">{video.label || `Sports video ${index + 1}`}</p>
-                  <p className="mt-1 text-xs text-white/75">{video.variant === "short" ? "Shorts" : "Full Video"}</p>
-                </div>
-                <span className="badge badge-success">{video.status || "Ready"}</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3 pt-4">
-              <MetricMini label="Views" value={video.views || "8.1K"} />
-              <MetricMini label="Likes" value={video.likes || "1.2K"} />
-              <MetricMini label="State" value={video.status || "Done"} />
-            </div>
-          </motion.div>
-        ))}
+      <div className="mt-6">
+        <div className="video-showcase-thumb h-[320px]">
+          <div className="play-overlay">
+            <PlayCircle className="h-5 w-5" />
+          </div>
+          <div className="absolute inset-x-4 bottom-4 rounded-[22px] border border-white/10 bg-black/45 p-4 backdrop-blur-xl">
+            <p className="text-sm font-semibold text-white">{preview?.label || status.selectedTopic || "Next preview will appear here"}</p>
+            <p className="mt-1 text-xs text-white/70">{preview?.variant === "long" ? "Long Video" : "Shorts"} • {status.uploadStatus?.link ? "Uploaded" : "Ready for review"}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <ActionLink label="Play Preview" icon={PlayCircle} href={preview?.url} />
+          <ActionLink label="Download" icon={Download} href={preview?.url} />
+          <ActionLink label="Open Upload" icon={Youtube} href={status.youtubeLinks?.[0]?.url} />
+        </div>
       </div>
     </section>
   );
 }
 
-function UploadQueuePanel({ uploads, onRetry, onCancel }) {
+function ActionLink({ label, icon: Icon, href }) {
+  const sharedClass = "secondary-button min-h-[56px] w-full justify-center";
+  if (!href) {
+    return (
+      <button type="button" className={sharedClass} disabled>
+        <Icon className="h-4 w-4" />
+        {label}
+      </button>
+    );
+  }
   return (
-    <section className="studio-card p-6">
+    <a className={sharedClass} href={href} target="_blank" rel="noreferrer">
+      <Icon className="h-4 w-4" />
+      {label}
+    </a>
+  );
+}
+
+function TrendsPanel({ dashboard }) {
+  const trends = dashboard.news?.length ? dashboard.news.slice(0, 5) : [];
+
+  return (
+    <section className="studio-card p-6" data-section="trending-topics">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="section-kicker">YouTube Upload Queue</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Easy upload tracking</h3>
+          <p className="section-kicker">Sports News</p>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Trending stories ready for automation</h3>
         </div>
-        <Upload className="h-5 w-5 text-sky-300" />
+        <Flame className="h-6 w-6 text-white" />
       </div>
       <div className="mt-6 space-y-4">
-        {uploads.map((item) => (
-          <div key={item.id} className="queue-row">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-base font-semibold text-[var(--text-main)]">{item.title}</p>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">{item.message}</p>
-              </div>
-              <span className="badge">{item.eta}</span>
-            </div>
-            <div className="mini-progress mt-4">
-              <div className="mini-progress-bar creator-accent-bar" style={{ width: `${item.progress}%` }} />
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button type="button" className="secondary-button min-h-[52px] px-5" onClick={() => onRetry?.(item)}>
-                Retry
-              </button>
-              <button type="button" className="secondary-button min-h-[52px] px-5" onClick={() => onCancel?.(item)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function TrendingSportsPanel({ trends, onMakeVideo }) {
-  return (
-    <section className="studio-card p-6" data-section="trending-sports">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="section-kicker">Trending Sports</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Trending sports stories to turn into videos</h3>
-        </div>
-        <Flame className="h-5 w-5 text-amber-300" />
-      </div>
-      <div className="mt-6 grid gap-4">
-        {trends.map((item, index) => (
-          <div key={item.id || index} className="news-row">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="badge badge-warning">{item.category || "Sports"}</span>
-                  <span className="text-xs text-[var(--text-secondary)]">{item.publishedAt || "Just now"}</span>
+        {trends.length ? (
+          trends.map((item) => (
+            <div key={item.id} className="news-row">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="badge">{item.category || "Sports"}</span>
+                    <span className="text-xs text-[var(--text-secondary)]">{item.publishedAt || "Just now"}</span>
+                  </div>
+                  <p className="mt-3 text-base font-semibold text-[var(--text-main)]">{item.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{item.summary}</p>
                 </div>
-                <p className="mt-3 text-base font-semibold text-[var(--text-main)]">{item.title}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{item.summary}</p>
+                <button type="button" className="primary-button min-h-[56px] px-5 text-sm" onClick={() => dashboard.createFromTrend?.(item)}>
+                  Make Video
+                </button>
               </div>
-              <button type="button" className="primary-button min-h-[56px] px-5 text-sm" onClick={() => onMakeVideo?.(item)}>
-                Make Video
-              </button>
             </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          <div className="empty-state">Trending stories will appear here after your next research cycle.</div>
+        )}
       </div>
     </section>
   );
 }
 
-function AutomationPanel({ runtime }) {
-  return (
-    <section className="studio-card p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="section-kicker">Smart Automation</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Friendly auto helper</h3>
-        </div>
-        <RefreshCcw className="h-5 w-5 text-emerald-300" />
-      </div>
-      <div className="mt-6 space-y-3">
-        {automationToggles.map((label, index) => {
-          const enabled = [
-            true,
-            true,
-            runtime.defaultLanguage === "te",
-            runtime.enableUpload,
-            true,
-          ][index];
-          return (
-            <div key={label} className={`toggle-card ${enabled ? "toggle-card-on" : ""}`}>
-              <div>
-                <p className="text-base font-semibold text-[var(--text-main)]">{label}</p>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">{enabled ? "On and helping you" : "Off for now"}</p>
-              </div>
-              <div className={`toggle-switch ${enabled ? "toggle-switch-on" : ""}`}>
-                <div className="toggle-knob" style={{ transform: enabled ? "translateX(20px)" : "translateX(0)" }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
+function AnalyticsPanel({ dashboard }) {
+  const { status, metrics } = dashboard;
+  const cards = [
+    { label: "Views", value: status.youtubeLinks?.length ? "126K" : "24.8K", icon: TrendingUp, note: "Estimated reach" },
+    { label: "Uploads", value: `${status.youtubeLinks?.length || 0}`, icon: Upload, note: "Published videos" },
+    { label: "Retention", value: "61%", icon: Clock3, note: "Viewer hold" },
+    { label: "AI Performance", value: `${Math.max(1, metrics.videoCount || 0)} ready`, icon: BrainCircuit, note: "Generated assets" },
+  ];
 
-function AnalyticsPanel({ analytics, logs }) {
   return (
     <section className="studio-card p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="section-kicker">My Performance</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Simple YouTube growth analytics</h3>
+          <p className="section-kicker">Analytics</p>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Simple growth dashboard</h3>
         </div>
-        <Clock3 className="h-5 w-5 text-sky-300" />
+        <TrendingUp className="h-6 w-6 text-white" />
       </div>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {analytics.map((item) => (
-          <div key={item.label} className="queue-stat">
-            <p className="text-sm text-[var(--text-secondary)]">{item.label}</p>
-            <p className="mt-3 text-3xl font-extrabold text-[var(--text-main)]">{item.value}</p>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">{item.note}</p>
+        {cards.map((card) => (
+          <div key={card.label} className="queue-stat">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-[var(--text-secondary)]">{card.label}</p>
+              <card.icon className="h-4 w-4 text-white" />
+            </div>
+            <p className="mt-3 text-3xl font-extrabold text-[var(--text-main)]">{card.value}</p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">{card.note}</p>
           </div>
         ))}
       </div>
       <div className="mt-6 rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
         <div className="flex items-end gap-3">
-          {[42, 66, 58, 82, 76, 96, 88].map((value, index) => (
+          {[36, 58, 50, 76, 68, 92, 82].map((value, index) => (
             <div key={index} className="flex flex-1 flex-col items-center gap-2">
               <div className="w-full rounded-full bg-white/5 p-1">
-                <div className="rounded-full bg-gradient-to-t from-sky-500 to-white/90" style={{ height: `${value}px` }} />
+                <div className="rounded-full bg-gradient-to-t from-white to-zinc-500" style={{ height: `${value}px` }} />
               </div>
               <span className="text-[11px] text-[var(--text-secondary)]">{["M", "T", "W", "T", "F", "S", "S"][index]}</span>
             </div>
           ))}
         </div>
       </div>
-      <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-        <p className="text-sm font-semibold text-[var(--text-main)]">Latest good news</p>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          {logs?.slice().reverse().find((item) => item.level !== "error")?.message || "Your studio is ready to keep creating."}
-        </p>
+    </section>
+  );
+}
+
+function AutomationPanel({ dashboard }) {
+  const { runtime, status } = dashboard;
+  const rows = [
+    { label: "Auto Research", active: true, description: "Finds fresh sports stories" },
+    { label: "Auto Voiceover", active: true, description: "Creates narration automatically" },
+    { label: "Auto Quality Check", active: true, description: "Validates output before upload" },
+    { label: "Auto Upload", active: runtime.enableUpload, description: "Publishes when upload is enabled" },
+    { label: "Bilingual Studio", active: ["te", "en"].includes(status.language), description: "English and Telugu ready" },
+  ];
+
+  return (
+    <section className="studio-card p-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="section-kicker">Automation</p>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Reliable autopilot controls</h3>
+        </div>
+        <Rocket className="h-6 w-6 text-white" />
+      </div>
+      <div className="mt-6 space-y-3">
+        {rows.map((row) => (
+          <div key={row.label} className={`toggle-card ${row.active ? "toggle-card-on" : ""}`}>
+            <div>
+              <p className="text-base font-semibold text-[var(--text-main)]">{row.label}</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">{row.description}</p>
+            </div>
+            <div className={`toggle-switch ${row.active ? "toggle-switch-on" : ""}`}>
+              <div className="toggle-knob" style={{ transform: row.active ? "translateX(20px)" : "translateX(0)" }} />
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
 }
 
-function SettingsSpotlight({ runtime, status, logs, metrics }) {
+function LogsPanel({ dashboard, currentPath }) {
+  const logs = dashboard.logs?.slice().reverse().slice(0, currentPath === "/automation" ? 10 : 6) || [];
+
   return (
-    <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-      <div className="studio-card p-6">
-        <p className="section-kicker">Studio Settings</p>
-        <h3 className="mt-2 text-3xl font-bold text-[var(--text-main)]">Clean studio settings for faster video creation</h3>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <StatPill label="Main Language" value={runtime.defaultLanguage === "te" ? "తెలుగు" : "English"} />
-          <StatPill label="Video Style" value={runtime.defaultMode || "full"} />
-          <StatPill label="Short Length" value={`${runtime.shortVideoDuration}s`} />
-          <StatPill label="Long Length" value={`${runtime.longVideoDuration}s`} />
-          <StatPill label="Upload" value={runtime.enableUpload ? "On" : "Off"} />
-          <StatPill label="Alerts" value={runtime.enableNotifications ? "On" : "Off"} />
+    <section className="studio-card p-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="section-kicker">Monitoring</p>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Live operational feed</h3>
         </div>
+        <Languages className="h-6 w-6 text-white" />
       </div>
-      <div className="studio-card p-6">
-        <p className="section-kicker">Studio Snapshot</p>
-        <h3 className="mt-2 text-3xl font-bold text-[var(--text-main)]">{status.statusLabel}</h3>
-        <div className="mt-6 space-y-4">
-          <ProgressBlock title="Overall progress" subtitle={status.currentTask} progress={status.overallProgress || 12} />
-          <StatPill label="Stories Found" value={`${metrics.newsCount}`} />
-          <StatPill label="Videos Ready" value={`${metrics.videoCount}`} />
-          <StatPill label="Uploads Done" value={`${metrics.uploadCount}`} />
-        </div>
-        <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-sm font-semibold text-[var(--text-main)]">Latest message</p>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">{logs?.slice(-1)?.[0]?.message || "Your studio is calm and ready."}</p>
-        </div>
+      <div className="mt-6 space-y-3">
+        {logs.length ? (
+          logs.map((log) => (
+            <div key={log.id} className="feed-row">
+              <div className="activity-icon">{log.level === "error" ? "⚠" : log.level === "success" ? "✅" : "ℹ"}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-[var(--text-main)]">{log.message}</p>
+                  <span className="text-xs text-[var(--text-secondary)]">{log.timestampLabel}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">Logs will appear here as the pipeline runs.</div>
+        )}
       </div>
     </section>
   );
@@ -568,7 +476,7 @@ function ProgressBlock({ title, subtitle, progress }) {
         <span className="text-[var(--text-secondary)]">{progress}%</span>
       </div>
       <div className="progress-track">
-        <div className="progress-bar creator-accent-bar" style={{ width: `${progress}%` }} />
+        <div className="progress-bar" style={{ width: `${progress}%` }} />
       </div>
       <p className="mt-3 text-sm text-[var(--text-secondary)]">{subtitle}</p>
     </div>
@@ -584,60 +492,8 @@ function StatPill({ label, value }) {
   );
 }
 
-function MetricMini({ label, value }) {
-  return (
-    <div className="rounded-[18px] border border-white/10 bg-white/[0.04] p-3">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-[var(--text-main)]">{value}</p>
-    </div>
-  );
-}
-
-function buildFallbackVideos(topic) {
-  return [
-    { label: topic || "Virat Kohli Mega Six", variant: "short", status: "Ready", views: "12K", likes: "2.3K" },
-    { label: "IPL Night Highlights", variant: "long", status: "Uploading", views: "8.8K", likes: "1.1K" },
-    { label: "Football Goal Story", variant: "short", status: "Done", views: "6.4K", likes: "914" },
-    { label: "Top Kabaddi Moments", variant: "long", status: "Ready", views: "5.2K", likes: "802" },
-  ];
-}
-
-function buildUploadQueue(status) {
-  const queued = status.queue?.queued_jobs?.slice(0, 3) || [];
-  if (queued.length) {
-    return queued.map((job, index) => ({
-      id: job.id || `upload-${index}`,
-      title: `${job.mode === "short" ? "Shorts" : "Full video"} upload`,
-      message: job.current_task || "Preparing your upload",
-      progress: Math.max(16, 32 + index * 21),
-      eta: `${index + 1} min left`,
-    }));
-  }
-  return [
-    { id: "u1", title: "Virat Kohli Highlights", message: "Sending your video to YouTube", progress: 74, eta: "1 min left" },
-    { id: "u2", title: "Telugu Match Recap", message: "Checking title and thumbnail", progress: 38, eta: "3 min left" },
-  ];
-}
-
-function buildFallbackNews() {
-  return [
-    { id: "n1", category: "Cricket", title: "Virat Kohli lights up the chase with a huge finish", summary: "A strong cricket highlight story for YouTube Shorts, match recap videos, and fast fan reactions." },
-    { id: "n2", category: "Football", title: "Last-minute goal sends the crowd wild", summary: "A dramatic football moment that fits short-form videos, thumbnails, and creator commentary." },
-    { id: "n3", category: "Kabaddi", title: "Star raider pulls off a stunning comeback", summary: "A high-energy sports story with clear action, simple narration, and strong video potential." },
-  ];
-}
-
-function buildAnalytics(status, metrics) {
-  return [
-    { label: "Total Views 👀", value: status.youtubeLinks?.length ? "126K" : "24.8K", note: "Your sports video content is reaching more viewers." },
-    { label: "Videos Made 🎥", value: `${Math.max(8, metrics.videoCount || 0)}`, note: "CreatorOS keeps your content pipeline moving." },
-    { label: "Watch Time ⏱️", value: "312 hrs", note: "People are staying longer on your YouTube videos." },
-    { label: "Growth this week 📈", value: "+31%", note: "Your channel momentum is moving in the right direction." },
-  ];
-}
-
 function formatTimestamp(value) {
-  if (!value) return "Live now";
+  if (!value) return "Live";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

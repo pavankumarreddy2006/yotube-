@@ -1,34 +1,45 @@
 services:
   - type: web
-    name: youtube-automation
+    name: creatoros
     env: python
+    rootDir: .
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NODE_VERSION
+        value: 20
+      - key: RENDER
+        value: "true"
       - key: OUTPUT_DIR
-        value: /tmp/youtube-automation/output
+        value: /tmp/creatoros/output
       - key: TEMP_DIR
-        value: /tmp/youtube-automation/tmp
+        value: /tmp/creatoros/tmp
       - key: RETAIN_RUN_ARTIFACTS
         value: "1"
       - key: ENABLE_LONG_VIDEO
         value: "false"
       - key: ENABLE_BACKGROUND_MUSIC
         value: "false"
-    buildCommand: pip install -r requirements.txt && cd frontend && npm install && npm run build
+    buildCommand: mkdir -p "$OUTPUT_DIR" "$TEMP_DIR" && pip install --upgrade pip && pip install -r requirements.txt && cd frontend && npm ci && npm run build
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
   - type: cron
-    name: youtube-automation-daily
+    name: creatoros-daily
     env: python
     schedule: "0 5 * * *"
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: RENDER
+        value: "true"
       - key: OUTPUT_DIR
-        value: /tmp/youtube-automation/output
+        value: /tmp/creatoros/output
       - key: TEMP_DIR
-        value: /tmp/youtube-automation/tmp
+        value: /tmp/creatoros/tmp
       - key: RETAIN_RUN_ARTIFACTS
         value: "1"
       - key: ENABLE_LONG_VIDEO
         value: "false"
       - key: ENABLE_BACKGROUND_MUSIC
         value: "false"
-    buildCommand: pip install -r requirements.txt
+    buildCommand: mkdir -p "$OUTPUT_DIR" "$TEMP_DIR" && pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python main.py full

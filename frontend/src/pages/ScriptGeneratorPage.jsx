@@ -6,6 +6,7 @@ export default function ScriptGeneratorPage({ dashboard }) {
   const { askAi, askAiResult, actionState, error, status, language } = dashboard;
   const [topic, setTopic] = useState(status?.selectedTopic || "");
   const [copied, setCopied] = useState(false);
+  const loading = actionState.prompt;
 
   async function submit(generateVideo) {
     if (!topic.trim()) {
@@ -39,11 +40,11 @@ export default function ScriptGeneratorPage({ dashboard }) {
         </div>
         {error ? <p className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</p> : null}
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <button type="button" onClick={() => submit(false)} disabled={actionState.askAi} className="action-gradient">
-            {actionState.askAi ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          <button type="button" onClick={() => submit(false)} disabled={loading} className="action-gradient">
+            {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             <span>Generate Script</span>
           </button>
-          <button type="button" onClick={() => submit(true)} disabled={actionState.askAi} className="ghost-button">
+          <button type="button" onClick={() => submit(true)} disabled={loading} className="ghost-button">
             <Video className="h-4 w-4" />
             <span>Generate Script + Video Prompt</span>
           </button>
