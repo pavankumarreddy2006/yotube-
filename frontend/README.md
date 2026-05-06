@@ -1,6 +1,14 @@
-# Frontend Web Application
+# CreatorOS Frontend
 
-React + Tailwind web application for monitoring and controlling the Telugu YouTube sports automation workflow.
+CreatorOS is a clean, premium frontend for creating, tracking, and publishing AI-powered sports videos. The interface is designed for beginners, YouTube creators, and fast content workflows across cricket, football, kabaddi, and other sports.
+
+## What it includes
+
+- AI sports video dashboard
+- YouTube Shorts and full video creation flow
+- Trending sports story discovery
+- Thumbnail and upload tracking
+- Beginner-friendly analytics and automation controls
 
 ## Run locally
 
@@ -12,7 +20,7 @@ npm run dev
 
 ## Backend API base URL
 
-By default the Vite dev server proxies these routes to `http://localhost:8000`:
+By default, the Vite dev server proxies these routes to `http://localhost:8000`:
 
 - `/status`
 - `/news`

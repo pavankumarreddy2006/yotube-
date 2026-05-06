@@ -57,7 +57,7 @@ export default function DashboardPage({ dashboard, currentPath }) {
   const { status, news, logs, runtime, actionState, metrics } = dashboard;
 
   if (!status || !runtime) {
-    return <div className="empty-state">Loading your sports video studio...</div>;
+    return <div className="empty-state">Loading CreatorOS and getting your sports video studio ready...</div>;
   }
 
   const pages = {
@@ -130,7 +130,7 @@ function HeroSection({ dashboard }) {
               What do you want to create today?
             </h2>
             <p className="max-w-2xl text-base leading-8 text-[var(--text-secondary)] sm:text-lg">
-              Pick a sport, choose a video style, and let CreatorOS turn your idea into a fun, polished sports video.
+              Create sports highlights, YouTube Shorts, match recap videos, and thumbnails in a clean AI studio that feels simple from the first tap.
             </p>
           </div>
 
@@ -208,10 +208,10 @@ function HeroSection({ dashboard }) {
             <div className="absolute inset-x-6 top-0 h-24 rounded-b-full bg-sky-400/10 blur-3xl" />
             <p className="section-kicker">Live Status</p>
             <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">
-              {status.selectedTopic || "Your next amazing sports video is waiting"}
+              {status.selectedTopic || "Your next sports highlight video is ready to begin"}
             </h3>
             <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">
-              {status.selectedTopicSummary || "Type a fun sports idea above and CreatorOS will do the hard work for you."}
+              {status.selectedTopicSummary || "Type a sports idea above and CreatorOS will help research it, write it, voice it, design it, and get it ready to publish."}
             </p>
             <div className="mt-6 space-y-4">
               <ProgressBlock title="Video magic progress" subtitle={status.currentTask} progress={status.overallProgress || 18} />
@@ -380,7 +380,7 @@ function UploadQueuePanel({ uploads }) {
     <section className="studio-card p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="section-kicker">Upload Queue</p>
+          <p className="section-kicker">YouTube Upload Queue</p>
           <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Easy upload tracking</h3>
         </div>
         <Upload className="h-5 w-5 text-sky-300" />
@@ -415,7 +415,7 @@ function TrendingSportsPanel({ trends }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="section-kicker">Trending Sports</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Pick a hot story</h3>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Trending sports stories to turn into videos</h3>
         </div>
         <Flame className="h-5 w-5 text-amber-300" />
       </div>
@@ -482,7 +482,7 @@ function AnalyticsPanel({ analytics, logs }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="section-kicker">My Performance</p>
-          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Big happy numbers</h3>
+          <h3 className="mt-2 text-2xl font-bold text-[var(--text-main)]">Simple YouTube growth analytics</h3>
         </div>
         <Clock3 className="h-5 w-5 text-sky-300" />
       </div>
@@ -522,7 +522,7 @@ function SettingsSpotlight({ runtime, status, logs, metrics }) {
     <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
       <div className="studio-card p-6">
         <p className="section-kicker">Studio Settings</p>
-        <h3 className="mt-2 text-3xl font-bold text-[var(--text-main)]">Everything is simple here</h3>
+        <h3 className="mt-2 text-3xl font-bold text-[var(--text-main)]">Clean studio settings for faster video creation</h3>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <StatPill label="Main Language" value={runtime.defaultLanguage === "te" ? "తెలుగు" : "English"} />
           <StatPill label="Video Style" value={runtime.defaultMode || "full"} />
@@ -611,18 +611,18 @@ function buildUploadQueue(status) {
 
 function buildFallbackNews() {
   return [
-    { id: "n1", category: "Cricket", title: "Virat Kohli lights up the chase with a huge finish", summary: "Fans are loving the winning moment and it is perfect for a quick exciting recap." },
-    { id: "n2", category: "Football", title: "Last-minute goal sends the crowd wild", summary: "A dramatic finish that works beautifully for Shorts and reaction videos." },
-    { id: "n3", category: "Kabaddi", title: "Star raider pulls off a stunning comeback", summary: "High-energy action with simple storytelling that beginners can publish fast." },
+    { id: "n1", category: "Cricket", title: "Virat Kohli lights up the chase with a huge finish", summary: "A strong cricket highlight story for YouTube Shorts, match recap videos, and fast fan reactions." },
+    { id: "n2", category: "Football", title: "Last-minute goal sends the crowd wild", summary: "A dramatic football moment that fits short-form videos, thumbnails, and creator commentary." },
+    { id: "n3", category: "Kabaddi", title: "Star raider pulls off a stunning comeback", summary: "A high-energy sports story with clear action, simple narration, and strong video potential." },
   ];
 }
 
 function buildAnalytics(status, metrics) {
   return [
-    { label: "Total Views 👀", value: status.youtubeLinks?.length ? "126K" : "24.8K", note: "People are watching your sports stories." },
-    { label: "Videos Made 🎥", value: `${Math.max(8, metrics.videoCount || 0)}`, note: "Your studio keeps creating." },
-    { label: "Watch Time ⏱️", value: "312 hrs", note: "Viewers are staying longer." },
-    { label: "Growth this week 📈", value: "+31%", note: "Nice momentum this week." },
+    { label: "Total Views 👀", value: status.youtubeLinks?.length ? "126K" : "24.8K", note: "Your sports video content is reaching more viewers." },
+    { label: "Videos Made 🎥", value: `${Math.max(8, metrics.videoCount || 0)}`, note: "CreatorOS keeps your content pipeline moving." },
+    { label: "Watch Time ⏱️", value: "312 hrs", note: "People are staying longer on your YouTube videos." },
+    { label: "Growth this week 📈", value: "+31%", note: "Your channel momentum is moving in the right direction." },
   ];
 }
 

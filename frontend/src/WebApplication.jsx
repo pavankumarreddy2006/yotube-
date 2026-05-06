@@ -14,7 +14,7 @@ import {
   Workflow,
   BarChart3,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/AppShell";
 import DashboardPage from "./pages/DashboardPage";
 import { useDashboardData } from "./hooks/useDashboardData";
@@ -46,6 +46,57 @@ export default function WebApplication() {
     () => navigation.find((item) => item.path === currentPath) || navigation[0],
     [currentPath]
   );
+
+  useEffect(() => {
+    const seoMap = {
+      "/dashboard": {
+        title: "CreatorOS Dashboard | AI Sports Video Studio",
+        description: "Plan, create, render, and upload AI-powered sports videos, YouTube Shorts, and thumbnails from one clean CreatorOS dashboard.",
+      },
+      "/video-generator": {
+        title: "Create Sports Videos | CreatorOS",
+        description: "Turn cricket, football, and trending sports stories into AI-generated videos, Shorts, and highlight clips with CreatorOS.",
+      },
+      "/sports-news": {
+        title: "Trending Sports News | CreatorOS",
+        description: "Discover trending sports stories and quickly turn them into engaging video ideas with CreatorOS.",
+      },
+      "/ai-content": {
+        title: "AI Studio | CreatorOS",
+        description: "Watch CreatorOS research, write, voice, and produce sports video content in real time.",
+      },
+      "/thumbnails": {
+        title: "AI Sports Thumbnails | CreatorOS",
+        description: "Create bold, high-converting thumbnails for sports videos and YouTube Shorts with CreatorOS.",
+      },
+      "/uploads": {
+        title: "Upload Queue | CreatorOS",
+        description: "Track YouTube uploads, progress, retries, and publish status inside CreatorOS.",
+      },
+      "/analytics": {
+        title: "Performance Analytics | CreatorOS",
+        description: "Understand views, watch time, video output, and growth with simple CreatorOS analytics.",
+      },
+      "/automation": {
+        title: "Smart Automation | CreatorOS",
+        description: "Automate sports research, script writing, Telugu voiceovers, thumbnails, and YouTube uploads with CreatorOS.",
+      },
+      "/settings": {
+        title: "Settings | CreatorOS",
+        description: "Customize language, video modes, uploads, and studio preferences in CreatorOS.",
+      },
+    };
+
+    const seo = seoMap[currentPath] || seoMap["/dashboard"];
+    document.title = seo.title;
+    let description = document.querySelector('meta[name="description"]');
+    if (!description) {
+      description = document.createElement("meta");
+      description.setAttribute("name", "description");
+      document.head.appendChild(description);
+    }
+    description.setAttribute("content", seo.description);
+  }, [currentPath]);
 
   return (
     <AppShell
