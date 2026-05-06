@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Command,
   Crown,
+  Languages,
   LogOut,
   Menu,
   MoonStar,
@@ -12,6 +13,7 @@ import {
   Settings2,
   Sparkles,
   SunMedium,
+  Trophy,
   UserCircle2,
   X,
 } from "lucide-react";
@@ -20,10 +22,10 @@ import { useEffect, useMemo, useState } from "react";
 import { StatusBadge } from "./StatusBadge";
 
 const groups = [
-  { key: "overview", label: "Home" },
-  { key: "studio", label: "Create" },
-  { key: "intelligence", label: "Insights" },
-  { key: "ops", label: "Control" },
+  { key: "overview", label: "Start Here" },
+  { key: "studio", label: "Studio Tools" },
+  { key: "intelligence", label: "Growth" },
+  { key: "ops", label: "Controls" },
 ];
 
 const mobileNavKeys = ["/dashboard", "/video-generator", "/sports-news", "/uploads", "/settings"];
@@ -177,7 +179,7 @@ export function AppShell({
 
             <button type="button" className="search-shell" onClick={() => setCommandOpen(true)} aria-label="Open command menu">
               <Search className="h-4 w-4 text-[var(--text-secondary)]" />
-              <span className="flex-1 text-left text-sm text-[var(--text-secondary)]">Search pages, actions, topics, and pipeline tasks</span>
+              <span className="flex-1 text-left text-sm text-[var(--text-secondary)]">What sports video do you want to make today? ✨</span>
               <span className="hidden rounded-xl border border-[var(--border)] bg-white/5 px-2 py-1 text-[11px] text-[var(--text-secondary)] sm:inline-flex">
                 Cmd + K
               </span>
@@ -244,7 +246,7 @@ export function AppShell({
 
               <button type="button" className="primary-button hidden sm:inline-flex" onClick={() => setCommandOpen(true)}>
                 <Sparkles className="h-4 w-4" />
-                Quick Create
+                + Create New Video
               </button>
 
               <div className="relative">
@@ -274,8 +276,8 @@ export function AppShell({
                       className="popover-panel right-0 top-[calc(100%+12px)] w-[260px]"
                     >
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                        <p className="text-sm font-semibold text-[var(--text-main)]">Sports AI Studio</p>
-                        <p className="mt-1 text-xs text-[var(--text-secondary)]">Premium production workspace</p>
+                        <p className="text-sm font-semibold text-[var(--text-main)]">CreatorOS</p>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">Premium sports video studio</p>
                       </div>
                       <div className="mt-3 space-y-2">
                         <button type="button" className="command-item">
@@ -342,13 +344,13 @@ function LiveStatusBar({ status }) {
   return (
     <div className="live-status-bar">
       <div className="flex flex-wrap items-center gap-3">
-        <span className={`text-sm font-semibold ${toneClass}`}>{status?.running ? "AI System Active" : status?.failed ? "Attention Needed" : "Studio Ready"}</span>
+        <span className={`text-sm font-semibold ${toneClass}`}>{status?.running ? "AI Studio is Active" : status?.failed ? "AI needs a quick check" : "AI is Ready"}</span>
         <span className="live-status-chip">{status?.progressLabel || "Idle"}</span>
-        <span className="live-status-chip">{status?.currentTask || "Waiting for the next automation run"}</span>
+        <span className="live-status-chip">{status?.selectedTopic || status?.currentTask || "Waiting for your next sports idea"}</span>
       </div>
       <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)]">
-        <span>{status?.uploadStatus?.active ? "Uploading to YouTube" : status?.renderStatus?.active ? "Rendering Video" : "Standing by"}</span>
-        <span>ETA: {eta}</span>
+        <span>{status?.uploadStatus?.active ? "Uploading to YouTube" : status?.renderStatus?.active ? "Making your video" : "Standing by"}</span>
+        <span>{status?.running ? `${eta} left` : `ETA: ${eta}`}</span>
       </div>
     </div>
   );
@@ -373,17 +375,15 @@ function Sidebar({
   onToggleTheme,
   workspace,
 }) {
-  const WorkspaceIcon = workspace.icon;
-
   return (
     <div className={`sidebar-shell ${mobile ? "h-full" : "min-h-screen"}`}>
       <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
         <div className="logo-mark">
-          <WorkspaceIcon className="h-5 w-5" />
+          <Trophy className="h-5 w-5" />
         </div>
         {!collapsed ? (
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--text-secondary)]">Workspace</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--text-secondary)]">CreatorOS</p>
             <h2 className="truncate text-base font-semibold text-[var(--text-main)]">{workspace.name}</h2>
           </div>
         ) : null}
@@ -404,8 +404,8 @@ function Sidebar({
           {!collapsed ? (
             <div className="min-w-0">
               <p className="text-sm font-semibold text-[var(--text-main)]">{status?.statusLabel || "Idle"}</p>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">{status?.currentTask || "Waiting for next event"}</p>
-              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[var(--text-secondary)]">{status?.languageLabel || "Telugu"} workflow</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">{status?.currentTask || "Ready for your next video"}</p>
+              <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[var(--text-secondary)]">{status?.languageLabel || "Telugu"} studio</p>
             </div>
           ) : null}
         </div>
@@ -441,6 +441,18 @@ function Sidebar({
       </nav>
 
       <div className="space-y-3 pt-6">
+        {!collapsed ? (
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Languages className="h-4 w-4 text-sky-300" />
+                <span className="text-sm text-[var(--text-main)]">Language</span>
+              </div>
+              <span className="text-xs text-[var(--text-secondary)]">English / తెలుగు</span>
+            </div>
+          </div>
+        ) : null}
+
         <button type="button" className={`secondary-button w-full justify-between ${collapsed ? "px-0" : ""}`} onClick={onToggleTheme}>
           {collapsed ? (
             theme === "dark" ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />
@@ -457,11 +469,11 @@ function Sidebar({
           {!collapsed ? (
             <>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[var(--text-main)]">Upgrade workspace</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">Priority renders, deeper analytics, and premium support.</p>
+                <p className="text-sm font-semibold text-[var(--text-main)]">Keep the magic going</p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">More renders, deeper insights, and extra creative power.</p>
               </div>
               <button type="button" className="primary-button h-10 px-4 text-xs">
-                Go Premium
+                Unlock More
               </button>
             </>
           ) : null}
@@ -567,7 +579,7 @@ function CommandDialog({ open, onClose, query, onQueryChange, items, onSelect, l
                     <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-secondary)]">System</p>
                     <p className="mt-2 text-sm text-[var(--text-main)]">{status?.currentStage || "Realtime feed connected"}</p>
                     <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                      {loading ? "Refreshing dashboard snapshot..." : "Command surface is live and ready."}
+                      {loading ? "Refreshing your studio..." : "Everything is live and ready."}
                     </p>
                   </div>
                   <button type="button" className="secondary-button mt-4 w-full justify-center" onClick={onClose}>
