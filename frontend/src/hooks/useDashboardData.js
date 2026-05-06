@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { askSportsAi, fetchDashboardState, generatePrompt, startAutomation, testTelegram, updateRuntimeSettings } from "../lib/api";
+import { askSportsAi, buildApiUrl, fetchDashboardState, generatePrompt, startAutomation, testTelegram, updateRuntimeSettings } from "../lib/api";
 import { normalizeLogs, normalizeNews, normalizeRuntime, normalizeStatus } from "../lib/formatters";
 
 const initialState = {
@@ -124,7 +124,7 @@ export function useDashboardData() {
     mountedRef.current = true;
     void refreshDashboard();
 
-    const source = new EventSource("/events");
+    const source = new EventSource(buildApiUrl("/events"));
     source.addEventListener("snapshot", (event) => {
       try {
         applySnapshot(JSON.parse(event.data));

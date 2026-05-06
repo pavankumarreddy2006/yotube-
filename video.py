@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import shutil
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -52,6 +53,37 @@ def _configure_moviepy() -> str:
     except Exception as exc:  # noqa: BLE001
         logger.info("MoviePy config update skipped: %s", exc)
     return ffmpeg_binary
+
+
+def _install_safe_moviepy_resize() -> None:
+    """Force MoviePy to use a Pillow-backed resizer.
+
+    Some Windows environments expose a partially broken ``cv2`` module where
+    constants like ``INTER_AREA`` and even ``resize`` are missing. MoviePy 1.x
+    detects cv2 first and then crashes later during clip resizing. We patch the
+    resize backend explicitly so video rendering remains stable.
+    """
+
+    try:
+        import numpy as np
+        import moviepy.video.fx.resize as resize_fx
+    except Exception as exc:  # noqa: BLE001
+        logger.info("MoviePy resize backend patch skipped: %s", exc)
+        return
+
+    if not hasattr(Image, "ANTIALIAS"):
+        Image.ANTIALIAS = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
+
+    def _pil_resizer(pic, newsize):
+        width, height = map(int, newsize)
+        pil_image = Image.fromarray(pic)
+        resized = pil_image.resize((width, height), Image.Resampling.LANCZOS)
+        return np.array(resized)
+
+    _pil_resizer.origin = "PIL"
+    resize_fx.resizer = _pil_resizer
+    resize_fx.resize_possible = True
+    logger.info("MoviePy resize backend forced to Pillow.")
 
 
 def _download_image(url: str, destination_dir: Path, stem: str) -> Path:
@@ -294,6 +326,8 @@ def build_video(
         from moviepy.editor import AudioFileClip, CompositeVideoClip, ImageClip, concatenate_videoclips
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"MoviePy import failed: {exc}") from exc
+
+    _install_safe_moviepy_resize()
 
     target_size = (1080, 1920) if vertical else (1920, 1080)
     fallback_image = str(image_path) if image_path else None

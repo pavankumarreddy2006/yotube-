@@ -9,15 +9,15 @@ from utils import get_logger
 logger = get_logger(__name__)
 
 STAGE_LABELS = {
-    "started": "🚀 Video Started",
-    "news_fetched": "📰 News Fetched",
-    "script_ready": "⚙️ Script Generation",
-    "voice_generated": "🎙️ Voice Generation",
-    "video_created": "🎬 Video Rendering",
-    "uploading": "📤 YouTube Upload",
-    "upload_success": "✅ Upload Success",
-    "all_done": "🎉 Automation Completed",
-    "error": "❌ Error Occurred",
+    "started": "Video Started",
+    "news_fetched": "News Fetched",
+    "script_ready": "Script Generation",
+    "voice_generated": "Voice Generation",
+    "video_created": "Video Rendering",
+    "uploading": "YouTube Upload",
+    "upload_success": "Upload Success",
+    "all_done": "Automation Completed",
+    "error": "Error Occurred",
 }
 
 
