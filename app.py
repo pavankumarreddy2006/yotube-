@@ -17,8 +17,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from content import generate_custom_script, normalize_language
+from data import TopicCandidate
 from events import get_event_history, latest_event_id
 from main import PIPELINE_LOCK, _cleanup_old_artifacts, run_pipeline_logic
+from ml_engine import intelligence_snapshot, load_learning_state
 from notify import send_telegram
 from queue_manager import job_queue
 from runtime import get_runtime_settings, save_runtime_settings
@@ -268,18 +270,58 @@ def _build_prompt(topic: str, *, language: str, mode: str) -> dict[str, str]:
 
 
 def _dashboard_payload() -> dict[str, Any]:
+    latest_run = _latest_run_payload()
+    latest_content = _latest_content_payload()
     return {
         "status": _load_status(),
         "news": _build_news_payload(),
         "logs": {"items": _load_logs()},
         "runtime": get_runtime_settings().to_public_dict(),
         "events": get_event_history(),
+        "intelligence": intelligence_snapshot(
+            candidates=_intelligence_candidates(latest_content, latest_run),
+            trends=latest_content.get("trends", []) or [],
+            latest_run=latest_run,
+        ),
     }
 
 
 def _launch_pipeline(mode: str, language: str, prompt: str = "") -> dict[str, str]:
     job = job_queue.enqueue(mode=mode, language=language, prompt=prompt)
     return {"status": "queued", "mode": mode, "language": language, "job_id": job["id"]}
+
+
+def _intelligence_candidates(latest_content: dict[str, Any], latest_run: dict[str, Any]) -> list[TopicCandidate]:
+    raw_candidates = list(latest_content.get("highlights") or latest_run.get("highlights") or [])
+    selected_topic = latest_content.get("selected_topic") or latest_run.get("selected_topic")
+    if isinstance(selected_topic, dict) and selected_topic.get("title"):
+        raw_candidates.insert(0, selected_topic)
+    candidates: list[TopicCandidate] = []
+    for item in raw_candidates:
+        if isinstance(item, TopicCandidate):
+            candidates.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        candidates.append(
+            TopicCandidate(
+                title=str(item.get("title", "Sports opportunity")).strip(),
+                summary=str(item.get("summary", "Sports story")).strip(),
+                source=str(item.get("source", "system")).strip(),
+                topic=str(item.get("topic", item.get("title", "sports"))).strip(),
+                image_url=str(item.get("image_url", item.get("image", ""))).strip(),
+                category=str(item.get("category", "Sports")).strip(),
+                players=[str(player).strip() for player in item.get("players", []) if str(player).strip()],
+                tournament=str(item.get("tournament", "")).strip(),
+                score_details=str(item.get("score_details", "")).strip(),
+                is_india=bool(item.get("is_india", False)),
+                is_thriller=bool(item.get("is_thriller", False)),
+                is_trending=bool(item.get("is_trending", False)),
+                published_at=str(item.get("published_at", "")).strip(),
+                raw=item,
+            )
+        )
+    return candidates
 
 
 def _scheduler_loop() -> None:
@@ -453,6 +495,7 @@ async def analytics() -> JSONResponse:
     status = _load_status()
     queue = job_queue.snapshot()
     latest_run = _latest_run_payload()
+    learning_state = load_learning_state()
     return JSONResponse(
         {
             "status": {
@@ -478,7 +521,25 @@ async def analytics() -> JSONResponse:
                 "completed_at": latest_run.get("completed_at", ""),
                 "work_dir": latest_run.get("work_dir", ""),
             },
+            "performance": latest_run.get("performance_snapshot", {}),
+            "recommendations": latest_run.get("recommendations", []),
+            "opportunities": latest_run.get("opportunities", [])[:5],
+            "learning_state": learning_state.to_public_dict(),
         }
+    )
+
+
+@app.get("/intelligence")
+async def intelligence() -> JSONResponse:
+    latest_run = _latest_run_payload()
+    latest_content = _latest_content_payload()
+    trends = latest_content.get("trends", []) or []
+    return JSONResponse(
+        intelligence_snapshot(
+            candidates=_intelligence_candidates(latest_content, latest_run),
+            trends=trends,
+            latest_run=latest_run,
+        )
     )
 
 

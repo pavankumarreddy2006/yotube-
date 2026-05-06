@@ -30,7 +30,7 @@ import {
   WandSparkles,
   XCircle,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import {
   Area,

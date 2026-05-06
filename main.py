@@ -18,6 +18,14 @@ from typing import Any
 from content import ContentPackage, fallback_content, generate_content, normalize_language
 from data import TopicCandidate, fallback_story_for_date, fetch_all_candidates, select_daily_highlights
 from events import publish_event
+from ml_engine import (
+    generate_optimization_recommendations,
+    load_learning_state,
+    rank_content_opportunities,
+    save_learning_state,
+    simulate_performance_snapshot,
+    update_learning_state,
+)
 from notify import send_stage_notification, send_upload_failure, send_upload_success
 from queue_manager import job_queue
 from runtime import get_runtime_settings
@@ -770,6 +778,8 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
     _set_stage("started", "Processing", detail=f"Starting automation in {content.language_label}.", telegram_stage="started")
     _validate_video_environment()
     candidates, trends = fetch_all_candidates()
+    learning_state = load_learning_state()
+    opportunities = rank_content_opportunities(candidates or [_safe_topic()], trends, learning_state)
     highlights = select_daily_highlights(candidates) if candidates else [_safe_topic()]
     selected_topic = highlights[0]
     if topic_override.strip():
@@ -824,6 +834,7 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
             "highlights": highlights,
             "content": content,
             "trends": trends,
+            "opportunities": opportunities,
             "headline_signature": signature,
             "created_at": datetime.now().isoformat(),
         },
@@ -887,6 +898,31 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
         runtime_settings=runtime_settings,
     )
     upload_result = _build_upload_summary(shorts_upload_result, long_upload_result)
+    matching_opportunity = next((item for item in opportunities if item.topic == selected_topic.title), opportunities[0] if opportunities else None)
+    performance_snapshot = simulate_performance_snapshot(
+        title=content.title,
+        topic=selected_topic.title,
+        mode="short" if mode == "short" else ("long" if mode == "long" else "full"),
+        language=language,
+        opportunity=matching_opportunity,
+    )
+    recommendations = generate_optimization_recommendations(
+        snapshot=performance_snapshot,
+        state=learning_state,
+        opportunities=opportunities,
+    )
+    updated_learning_state = update_learning_state(learning_state, performance_snapshot, opportunities)
+    save_learning_state(updated_learning_state)
+    dump_json(
+        {
+            "snapshot": performance_snapshot,
+            "recommendations": recommendations,
+            "learning_state": updated_learning_state,
+            "opportunities": opportunities,
+            "generated_at": datetime.now().isoformat(),
+        },
+        work_dir / "optimization_report.json",
+    )
     _finalize_success(
         mode=mode,
         language=language,
@@ -905,6 +941,9 @@ def _run_once(*, mode: str, language: str, topic_override: str = "") -> None:
         long_upload_result=long_upload_result,
         headline_signature=signature,
         upload_result=upload_result,
+        opportunities=opportunities,
+        performance_snapshot=performance_snapshot,
+        recommendations=recommendations,
     )
 
 
@@ -927,6 +966,9 @@ def _finalize_success(
     long_upload_result: str | None,
     headline_signature: str,
     upload_result: str,
+    opportunities: list[Any],
+    performance_snapshot: Any,
+    recommendations: list[Any],
 ) -> None:
     cloud_artifacts = _upload_artifacts_to_cloud(
         work_dir=work_dir,
@@ -964,6 +1006,9 @@ def _finalize_success(
             "long_upload": long_upload_result,
             "upload": upload_result,
             "headline_signature": headline_signature,
+            "performance_snapshot": performance_snapshot,
+            "recommendations": recommendations,
+            "opportunities": opportunities,
             "signature_date": _today_key(),
             "signature_history": _stored_signatures(),
             "completed_at": datetime.now().isoformat(),
@@ -1008,6 +1053,9 @@ def _finalize_success(
             "youtube_links": youtube_links,
             "headline_signature": headline_signature,
             "cloud_artifacts": cloud_artifacts,
+            "performance_snapshot": performance_snapshot,
+            "recommendations": recommendations,
+            "top_opportunities": opportunities[:5],
         }
     )
     if get_storage().is_enabled():

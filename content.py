@@ -104,17 +104,15 @@ def fallback_content(language: str = "te") -> dict[str, str]:
         }
 
     return {
-        "title": "ఈ రోజు స్పోర్ట్స్ అప్డేట్",
+        "title": "E roju sports update",
         "script": (
-            "ఇది మీరు నమ్మలేని విషయం. "
-            "ఈ రోజు స్పోర్ట్స్ ప్రపంచంలో కొన్ని పెద్ద మార్పులు జరిగాయి. "
-            "ఇప్పుడు అసలు విషయం చూద్దాం. "
-            "క్రికెట్ నుంచి ఫుట్‌బాల్ వరకు అభిమానులు మాట్లాడుతున్న ముఖ్యమైన వార్తలను చాలా సింపుల్‌గా మీకు చెప్పబోతున్నాం. "
-            "చివరి వరకు చూడండి, చివర్లో ఉన్న అప్డేట్ మొత్తం కథను మార్చేస్తుంది."
+            "Idi meeru nammaleni vishayam. "
+            "E roju sports prapanchamlo konni pedda marpulu jarigayi. "
+            "Ippudu asalu vishayam chuddam. "
+            "Cricket nunchi football varaku abhimanulu maatladutunna mukhyamaina vaarthalu meeku simple ga cheppabotunnam. "
+            "Chivari varaku chudandi, chivarilo unna update mottham kathanu marchesstundi."
         ),
     }
-
-
 def generate_content(
     selected_topic: TopicCandidate,
     scored: ScoredTopic,
@@ -161,9 +159,9 @@ def generate_custom_script(
         )
     else:
         script = (
-            f"{topic} గురించి ఇది మీరు నమ్మలేని విషయం. "
-            "ఇప్పుడు అసలు విషయం చూద్దాం. "
-            "ఏం జరిగింది, అది ఎందుకు ముఖ్యమో, తరువాత ఏం జరగొచ్చో చాలా సింపుల్ తెలుగు లో చూసేద్దాం."
+            f"{topic} gurinchi idi meeru nammaleni vishayam. "
+            "Ippudu asalu vishayam chuddam. "
+            "Em jarigindi, adi enduku mukhyamo, taruvata em jaragochcho chaala simple Telugu lo chuseddam."
         )
 
     return _normalize_custom_script_payload(
@@ -173,7 +171,7 @@ def generate_custom_script(
             "language": normalized_language,
             "language_label": language_label,
             "video_prompt": (
-                f"Create a professional {'vertical' if include_video_prompt else 'wide'} Telugu sports explainer with matching visuals for {topic}."
+                f"Create a professional {'vertical' if include_video_prompt else 'wide'} {language_label} sports explainer with matching visuals for {topic}."
                 if include_video_prompt
                 else ""
             ),
@@ -202,7 +200,7 @@ def _system_prompt(language: str) -> str:
     language_label = SUPPORTED_LANGUAGES[language]
     script_rule = f"All narration, hooks, scene lines, and highlights must be fully in natural {language_label}."
     return f"""
-You are a top-tier Telugu YouTube producer building a polished, high-retention sports video package.
+You are a top-tier {language_label} YouTube producer building a polished, high-retention sports video package.
 
 OUTPUT (STRICT JSON ONLY):
 {{
@@ -398,7 +396,7 @@ def _fallback_content(
             "trending sports topics",
             *trends[:4],
         ],
-        thumbnail_text="షాక్ న్యూస్",
+        thumbnail_text="SHOCK NEWS" if language == "te" else "SPORTS SHOCK",
         hook=_split_sentences(base["script"])[0],
         shorts_script=base["script"],
         long_script=base["script"] + " " + " ".join(item.summary for item in highlights[:4] if item.summary),
@@ -416,7 +414,7 @@ def _minimal_content_package(language: str) -> ContentPackage:
         title=base["title"],
         description="Automated sports video update.",
         tags=["sports update", "telugu sports"],
-        thumbnail_text="షాక్ అప్డేట్" if language == "te" else "SPORTS UPDATE",
+        thumbnail_text="SHOCK UPDATE" if language == "te" else "SPORTS UPDATE",
         hook=_split_sentences(base["script"])[0] if _split_sentences(base["script"]) else base["script"],
         shorts_script=base["script"],
         long_script=base["script"],
@@ -576,7 +574,7 @@ def _normalize_subtitle_timing(value: object, scene_breakdown: list[dict[str, ob
 def _normalize_thumbnail_strategy(value: object, topic: str, language: str) -> dict[str, str]:
     if isinstance(value, dict):
         return {
-            "text": str(value.get("text", "")).strip() or ("షాక్ న్యూస్" if language == "te" else "SPORTS SHOCK"),
+            "text": str(value.get("text", "")).strip() or ("SHOCK NEWS" if language == "te" else "SPORTS SHOCK"),
             "layout": str(value.get("layout", "")).strip() or "Hero face on left, explosive action on right, bold text at bottom.",
             "focal_subject": str(value.get("focal_subject", "")).strip() or topic,
             "color_strategy": str(value.get("color_strategy", "")).strip() or "High contrast red, yellow, and white over a dark sports backdrop.",
@@ -646,7 +644,7 @@ def _fallback_subtitle_timing(script: str) -> list[dict[str, object]]:
 
 def _fallback_thumbnail_strategy(topic: str, language: str) -> dict[str, str]:
     return {
-        "text": "షాక్ న్యూస్" if language == "te" else "SPORTS SHOCK",
+        "text": "SHOCK NEWS" if language == "te" else "SPORTS SHOCK",
         "layout": "Emotional face on one side, decisive sports action on the other, oversized text in the lower third.",
         "focal_subject": topic,
         "color_strategy": "Use dark contrast with red, yellow, and white accents so the thumbnail stays readable on mobile.",

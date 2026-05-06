@@ -33,6 +33,16 @@ class ApiTests(unittest.TestCase):
         payload = response.json()
         self.assertIn("status", payload)
         self.assertIn("queue", payload)
+        self.assertIn("learning_state", payload)
+
+    def test_intelligence_endpoint(self) -> None:
+        response = self.client.get("/intelligence")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("trend_signals", payload)
+        self.assertIn("learning_state", payload)
+        self.assertIn("competitor_insights", payload)
+        self.assertIsInstance(payload.get("latest_topic", ""), str)
 
     def test_generate_video_alias_queues_job(self) -> None:
         with patch.object(app_module, "_launch_pipeline", return_value={"status": "queued", "job_id": "job-test", "mode": "test", "language": "en"}):

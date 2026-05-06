@@ -31,3 +31,32 @@ class SemanticMediaMatcher:
         if not narration_terms or not visual_terms:
             return 0.0
         return len(narration_terms & visual_terms) / len(narration_terms | visual_terms)
+from .intelligence import (
+    DailyLearningState,
+    OpportunityScore,
+    PerformanceSnapshot,
+    build_competitor_insights,
+    build_trend_signals,
+    generate_optimization_recommendations,
+    intelligence_snapshot,
+    load_learning_state,
+    rank_content_opportunities,
+    save_learning_state,
+    simulate_performance_snapshot,
+    update_learning_state,
+)
+
+__all__ = [
+    "DailyLearningState",
+    "OpportunityScore",
+    "PerformanceSnapshot",
+    "build_competitor_insights",
+    "build_trend_signals",
+    "generate_optimization_recommendations",
+    "intelligence_snapshot",
+    "load_learning_state",
+    "rank_content_opportunities",
+    "save_learning_state",
+    "simulate_performance_snapshot",
+    "update_learning_state",
+]
