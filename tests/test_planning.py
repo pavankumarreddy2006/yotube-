@@ -32,6 +32,9 @@ class PlanningServiceTests(unittest.TestCase):
         self.assertEqual(len(plan.subtitles), 3)
         self.assertEqual(plan.format.size, (1080, 1920))
         self.assertAlmostEqual(plan.duration, 12.0, places=2)
+        self.assertTrue(plan.scenes[0].transition)
+        self.assertTrue(plan.scenes[0].motion_effect)
+        self.assertTrue(plan.scenes[0].emotion)
 
 
 if __name__ == "__main__":

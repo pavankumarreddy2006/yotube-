@@ -21,10 +21,10 @@
 
   :root[data-theme="light"] {
     color-scheme: light;
-    --bg: #e8eef7;
-    --sidebar: #dbe4f0;
-    --card: rgba(255, 255, 255, 0.92);
-    --border: #c8d4e5;
+    --bg: #edf3fb;
+    --sidebar: #dce7f5;
+    --card: rgba(255, 255, 255, 0.88);
+    --border: #c7d4e8;
     --accent: #2563eb;
     --success: #16a34a;
     --warning: #d97706;
@@ -41,15 +41,16 @@
   html {
     @apply antialiased;
     background: var(--bg);
+    scroll-behavior: smooth;
   }
 
   body {
     @apply min-h-screen font-sans;
     background:
-      radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 24%),
-      radial-gradient(circle at top right, rgba(34, 197, 94, 0.08), transparent 18%),
-      radial-gradient(circle at bottom, rgba(245, 158, 11, 0.08), transparent 20%),
-      var(--bg);
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 26%),
+      radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 20%),
+      radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.08), transparent 22%),
+      linear-gradient(180deg, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.98) 100%);
     color: var(--text-main);
   }
 
@@ -89,43 +90,80 @@
     color: var(--text-main);
   }
 
-  .app-backdrop {
+  .app-backdrop,
+  .app-backdrop-secondary {
     @apply pointer-events-none fixed inset-0;
+  }
+
+  .app-backdrop {
     background:
-      radial-gradient(circle at 10% 15%, rgba(59, 130, 246, 0.13), transparent 20%),
-      radial-gradient(circle at 88% 10%, rgba(15, 23, 42, 0.18), transparent 24%),
-      radial-gradient(circle at 70% 80%, rgba(34, 197, 94, 0.08), transparent 18%);
+      radial-gradient(circle at 12% 12%, rgba(59, 130, 246, 0.14), transparent 22%),
+      radial-gradient(circle at 82% 10%, rgba(56, 189, 248, 0.08), transparent 18%),
+      radial-gradient(circle at 50% 100%, rgba(15, 23, 42, 0.25), transparent 32%);
+  }
+
+  .app-backdrop-secondary {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 24%),
+      radial-gradient(circle at 70% 80%, rgba(34, 197, 94, 0.06), transparent 16%);
+  }
+
+  .page-shell {
+    @apply px-4 pb-28 pt-4 sm:px-6 xl:px-8;
   }
 
   .sidebar-shell {
     @apply flex flex-col gap-1 border-r px-4 py-5;
     background: rgba(17, 24, 39, 0.92);
-    border-color: var(--border);
-    backdrop-filter: blur(22px);
+    border-color: rgba(51, 65, 85, 0.78);
+    backdrop-filter: blur(28px);
+  }
+
+  .workspace-panel {
+    @apply rounded-[28px] border p-4;
+    border-color: rgba(51, 65, 85, 0.9);
+    background:
+      radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 36%),
+      rgba(255, 255, 255, 0.04);
   }
 
   .topbar {
-    @apply sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-4 backdrop-blur-xl sm:px-6 xl:px-8;
+    @apply sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-4 backdrop-blur-2xl sm:px-6 xl:px-8;
     background: rgba(15, 23, 42, 0.72);
-    border-color: rgba(51, 65, 85, 0.8);
+    border-color: rgba(51, 65, 85, 0.72);
+    box-shadow: 0 10px 30px rgba(2, 6, 23, 0.14);
   }
 
   .logo-mark {
     @apply flex h-12 w-12 items-center justify-center rounded-2xl text-white;
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 52%, #1d4ed8 100%);
     box-shadow: 0 18px 40px rgba(59, 130, 246, 0.28);
   }
 
   .glass-card {
     @apply overflow-hidden rounded-[28px] border shadow-xl;
-    background: rgba(30, 41, 59, 0.7);
-    border-color: rgba(51, 65, 85, 0.9);
+    background: rgba(30, 41, 59, 0.72);
+    border-color: rgba(51, 65, 85, 0.88);
     backdrop-filter: blur(24px);
-    box-shadow: 0 20px 50px rgba(2, 6, 23, 0.22);
+    box-shadow: 0 22px 50px rgba(2, 6, 23, 0.2);
   }
 
   .hero-panel {
-    @apply glass-card p-6;
+    @apply glass-card p-6 md:p-7;
+  }
+
+  .modal-shell {
+    @apply fixed left-1/2 top-1/2 z-[95] w-[min(92vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-[32px] border p-6 shadow-2xl;
+    background: rgba(17, 24, 39, 0.96);
+    border-color: rgba(51, 65, 85, 0.92);
+    backdrop-filter: blur(28px);
+  }
+
+  .popover-panel {
+    @apply absolute z-[60] rounded-[28px] border p-4 shadow-2xl;
+    background: rgba(17, 24, 39, 0.96);
+    border-color: rgba(51, 65, 85, 0.88);
+    backdrop-filter: blur(22px);
   }
 
   .card-hover {
@@ -133,8 +171,8 @@
   }
 
   .card-hover:hover {
-    transform: translateY(-2px);
-    border-color: rgba(59, 130, 246, 0.45);
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.42);
   }
 
   .nav-button {
@@ -147,15 +185,17 @@
   .secondary-button:hover,
   .icon-button:hover,
   .profile-chip:hover,
-  .chip-button:hover {
-    background: rgba(255, 255, 255, 0.06);
+  .chip-button:hover,
+  .table-action-button:hover,
+  .bottom-nav-item:hover {
+    background: rgba(255, 255, 255, 0.065);
     color: var(--text-main);
   }
 
   .nav-button-active {
     @apply shadow-lg;
     color: var(--text-main);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(59, 130, 246, 0.08));
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.26), rgba(59, 130, 246, 0.08));
     border: 1px solid rgba(59, 130, 246, 0.3);
   }
 
@@ -170,13 +210,13 @@
   .chip-button,
   .table-action-button {
     @apply inline-flex items-center gap-2 rounded-2xl border text-sm transition duration-300;
-    border-color: var(--border);
+    border-color: rgba(51, 65, 85, 0.9);
     background: rgba(255, 255, 255, 0.04);
     color: var(--text-secondary);
   }
 
   .search-shell {
-    @apply min-h-[48px] flex-1 px-4 py-3 md:max-w-xl;
+    @apply min-h-[50px] flex-1 px-4 py-3 md:max-w-xl;
   }
 
   .search-inline {
@@ -189,11 +229,11 @@
   }
 
   .input-shell {
-    @apply block rounded-3xl;
+    @apply block rounded-[22px];
   }
 
   .select-shell {
-    @apply h-[52px] rounded-3xl;
+    @apply h-[52px] rounded-[22px];
   }
 
   .secondary-button,
@@ -207,8 +247,8 @@
 
   .primary-button {
     color: white;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    box-shadow: 0 18px 36px rgba(37, 99, 235, 0.24);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%);
+    box-shadow: 0 18px 36px rgba(37, 99, 235, 0.22);
   }
 
   .primary-button:hover {
@@ -231,25 +271,25 @@
   }
 
   .command-dialog {
-    @apply fixed left-1/2 top-24 z-[80] w-[min(92vw,900px)] -translate-x-1/2 overflow-hidden rounded-[28px] border;
+    @apply fixed left-1/2 top-24 z-[80] w-[min(94vw,940px)] -translate-x-1/2 overflow-hidden rounded-[30px] border;
     background: rgba(17, 24, 39, 0.96);
-    border-color: var(--border);
+    border-color: rgba(51, 65, 85, 0.9);
     box-shadow: 0 24px 80px rgba(2, 6, 23, 0.45);
   }
 
   .command-item {
-    @apply flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm;
+    @apply flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm transition duration-300;
     color: var(--text-main);
   }
 
   .bottom-nav {
-    @apply fixed bottom-3 left-3 right-3 z-40 grid grid-cols-5 gap-2 rounded-[26px] border p-2 backdrop-blur-xl;
+    @apply fixed bottom-3 left-3 right-3 z-40 grid grid-cols-5 gap-2 rounded-[28px] border p-2 backdrop-blur-xl;
     background: rgba(17, 24, 39, 0.92);
-    border-color: var(--border);
+    border-color: rgba(51, 65, 85, 0.9);
   }
 
   .bottom-nav-item {
-    @apply flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl text-[11px];
+    @apply flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl text-[11px] transition duration-300;
     color: var(--text-secondary);
   }
 
@@ -265,7 +305,7 @@
   .news-inline-row,
   .toggle-card {
     @apply rounded-[24px] border;
-    border-color: var(--border);
+    border-color: rgba(51, 65, 85, 0.9);
     background: rgba(255, 255, 255, 0.04);
   }
 
@@ -274,19 +314,13 @@
   }
 
   .section-kicker {
-    @apply text-xs uppercase tracking-[0.22em];
+    @apply text-[11px] uppercase tracking-[0.26em];
     color: var(--text-secondary);
   }
 
-  .dashboard-grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
-
   .badge {
-    @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em];
-    border-color: var(--border);
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em];
+    border-color: rgba(51, 65, 85, 0.9);
     color: var(--text-secondary);
     background: rgba(255, 255, 255, 0.04);
   }
@@ -295,7 +329,6 @@
   .badge-success { background: rgba(34, 197, 94, 0.16); color: #bbf7d0; border-color: rgba(34, 197, 94, 0.26); }
   .badge-warning { background: rgba(245, 158, 11, 0.16); color: #fde68a; border-color: rgba(245, 158, 11, 0.26); }
   .badge-danger { background: rgba(239, 68, 68, 0.16); color: #fecaca; border-color: rgba(239, 68, 68, 0.26); }
-  .badge-accent { background: rgba(59, 130, 246, 0.16); color: #bfdbfe; border-color: rgba(59, 130, 246, 0.26); }
 
   .status-dot {
     @apply h-3 w-3 rounded-full;
@@ -325,7 +358,14 @@
   }
 
   .news-card {
-    @apply flex w-full flex-col gap-4 p-4 text-left sm:flex-row;
+    @apply flex w-full flex-col gap-4 p-4 text-left transition duration-300 sm:flex-row;
+  }
+
+  .news-card:hover,
+  .news-inline-row:hover,
+  .feed-item:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.34);
   }
 
   .news-image,
@@ -346,7 +386,7 @@
 
   .video-thumb {
     @apply relative h-44 overflow-hidden rounded-[24px] border;
-    border-color: var(--border);
+    border-color: rgba(51, 65, 85, 0.9);
     background: rgba(255, 255, 255, 0.04);
   }
 
@@ -359,7 +399,7 @@
   }
 
   .dropzone-button {
-    @apply min-h-[120px] w-full justify-center rounded-3xl border-dashed px-4;
+    @apply min-h-[132px] w-full justify-center rounded-[24px] border-dashed px-4;
   }
 
   .chip-button {
@@ -390,15 +430,7 @@
 
   .feed-item,
   .news-inline-row {
-    @apply flex items-center gap-3 p-4;
-  }
-
-  .news-inline-row {
-    @apply w-full text-left transition duration-300;
-  }
-
-  .news-inline-row:hover {
-    background: rgba(255, 255, 255, 0.08);
+    @apply flex items-center gap-3 p-4 transition duration-300;
   }
 
   .table-action-button {
@@ -406,9 +438,36 @@
     color: var(--text-main);
   }
 
+  .table-scroll {
+    @apply overflow-x-auto;
+  }
+
+  .table-head {
+    @apply sticky top-0 z-10;
+    background: rgba(15, 23, 42, 0.98);
+  }
+
+  .table-head-cell {
+    @apply whitespace-nowrap px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.18em];
+    color: var(--text-secondary);
+  }
+
+  .table-row {
+    @apply border-t transition duration-300;
+    border-color: rgba(51, 65, 85, 0.78);
+  }
+
+  .table-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .table-cell {
+    @apply px-4 py-4 align-top text-sm text-[var(--text-secondary)];
+  }
+
   .toast-card {
     @apply block w-[min(360px,calc(100vw-2rem))] rounded-2xl border px-4 py-3 text-left text-sm shadow-xl;
-    border-color: var(--border);
+    border-color: rgba(51, 65, 85, 0.9);
     background: rgba(17, 24, 39, 0.96);
     color: var(--text-main);
   }
@@ -419,7 +478,7 @@
 
   .empty-state {
     @apply rounded-[24px] border border-dashed p-8 text-center;
-    border-color: var(--border);
+    border-color: rgba(51, 65, 85, 0.9);
     color: var(--text-secondary);
     background: rgba(255, 255, 255, 0.03);
   }

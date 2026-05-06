@@ -62,7 +62,15 @@ export default function ScriptGeneratorPage({ dashboard }) {
       >
         <div className="space-y-4">
           <ResultBlock label="Title" value={askAiResult?.title || "No custom script has been generated yet."} />
+          <ResultBlock label="Hook" value={askAiResult?.hook || "The opening hook will appear here."} multiline />
           <ResultBlock label="Script" value={askAiResult?.script || "The generated script will appear here."} multiline />
+          <ListBlock label="Research Angles" items={askAiResult?.research} empty="Verified story angles and audience psychology notes will appear here." />
+          <SceneBlock label="Scene Breakdown" items={askAiResult?.scene_breakdown} />
+          <SubtitleBlock label="Subtitle Timing" items={askAiResult?.subtitle_timing} />
+          <ThumbnailBlock label="Thumbnail Strategy" value={askAiResult?.thumbnail_strategy} />
+          <ListBlock label="Title Options" items={askAiResult?.title_options} empty="Extra CTR-focused title ideas will appear here." />
+          <ResultBlock label="Viral Angle" value={askAiResult?.viral_angle || "The audience and virality angle will appear here."} multiline />
+          <ScoreBlock engagement={askAiResult?.engagement_score} retention={askAiResult?.retention_score} />
           <ResultBlock label="Video Prompt" value={askAiResult?.video_prompt || "Request video prompt generation to see a production brief here."} multiline />
           <ResultBlock
             label="Language"
@@ -79,6 +87,99 @@ function ResultBlock({ label, value, multiline = false }) {
     <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className={`mt-3 text-sm text-slate-200 ${multiline ? "whitespace-pre-line leading-7" : ""}`}>{value}</p>
+    </div>
+  );
+}
+
+function ListBlock({ label, items, empty }) {
+  const rows = Array.isArray(items) ? items.filter(Boolean) : [];
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      {rows.length ? (
+        <div className="mt-3 space-y-2">
+          {rows.map((item, index) => (
+            <p key={`${label}-${index}`} className="text-sm leading-7 text-slate-200">
+              {index + 1}. {item}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-slate-200">{empty}</p>
+      )}
+    </div>
+  );
+}
+
+function SceneBlock({ label, items }) {
+  const rows = Array.isArray(items) ? items : [];
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      {rows.length ? (
+        <div className="mt-3 space-y-3">
+          {rows.map((item, index) => (
+            <div key={`scene-${index}`} className="rounded-2xl border border-white/8 bg-black/20 p-3 text-sm text-slate-200">
+              <p className="font-medium text-white">Scene {item.scene_number || index + 1}</p>
+              <p className="mt-2 leading-6">{item.narration}</p>
+              <p className="mt-2 text-slate-300">Visual: {item.visual}</p>
+              <p className="mt-1 text-slate-400">Transition: {item.transition} | Motion: {item.motion} | Emotion: {item.emotion} | {item.duration_seconds}s</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-slate-200">Scene-by-scene editing guidance will appear here.</p>
+      )}
+    </div>
+  );
+}
+
+function SubtitleBlock({ label, items }) {
+  const rows = Array.isArray(items) ? items : [];
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      {rows.length ? (
+        <div className="mt-3 space-y-2">
+          {rows.map((item, index) => (
+            <p key={`subtitle-${index}`} className="text-sm leading-7 text-slate-200">
+              {item.start}s - {item.end}s: {item.text} [{item.emphasis}]
+            </p>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-slate-200">Subtitle sync suggestions will appear here.</p>
+      )}
+    </div>
+  );
+}
+
+function ThumbnailBlock({ label, value }) {
+  const strategy = value && typeof value === "object" ? value : null;
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      {strategy ? (
+        <div className="mt-3 space-y-2 text-sm text-slate-200">
+          <p>Text: {strategy.text}</p>
+          <p>Layout: {strategy.layout}</p>
+          <p>Focal subject: {strategy.focal_subject}</p>
+          <p>Color strategy: {strategy.color_strategy}</p>
+          <p>Emotion: {strategy.emotion}</p>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-slate-200">Thumbnail composition strategy will appear here.</p>
+      )}
+    </div>
+  );
+}
+
+function ScoreBlock({ engagement, retention }) {
+  return (
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Performance Forecast</p>
+      <p className="mt-3 text-sm text-slate-200">Engagement score: {engagement ?? "Pending"} / 100</p>
+      <p className="mt-1 text-sm text-slate-200">Retention score: {retention ?? "Pending"} / 100</p>
     </div>
   );
 }

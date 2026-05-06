@@ -42,6 +42,17 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(payload["status"], "queued")
             self.assertEqual(payload["job_id"], "job-test")
 
+    def test_ask_ai_returns_production_brief(self) -> None:
+        response = self.client.post("/ask-ai", json={"topic": "Virat Kohli form analysis", "language": "en", "mode": "full"})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("script", payload)
+        self.assertIn("scene_breakdown", payload)
+        self.assertIn("subtitle_timing", payload)
+        self.assertIn("thumbnail_strategy", payload)
+        self.assertIn("engagement_score", payload)
+        self.assertTrue(payload["scene_breakdown"])
+
 
 if __name__ == "__main__":
     unittest.main()

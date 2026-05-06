@@ -166,17 +166,31 @@ def generate_custom_script(
             "ఏం జరిగింది, అది ఎందుకు ముఖ్యమో, తరువాత ఏం జరగొచ్చో చాలా సింపుల్ తెలుగు లో చూసేద్దాం."
         )
 
-    return {
-        "title": title,
-        "script": script,
-        "language": normalized_language,
-        "language_label": language_label,
-        "video_prompt": (
-            f"Create a professional {'vertical' if include_video_prompt else 'wide'} Telugu sports explainer with matching visuals for {topic}."
-            if include_video_prompt
-            else ""
-        ),
-    }
+    return _normalize_custom_script_payload(
+        {
+            "title": title,
+            "script": script,
+            "language": normalized_language,
+            "language_label": language_label,
+            "video_prompt": (
+                f"Create a professional {'vertical' if include_video_prompt else 'wide'} Telugu sports explainer with matching visuals for {topic}."
+                if include_video_prompt
+                else ""
+            ),
+            "hook": _split_sentences(script)[0] if _split_sentences(script) else script,
+            "research": _fallback_research_points(topic, normalized_language),
+            "scene_breakdown": _fallback_scene_breakdown(script, normalized_language),
+            "subtitle_timing": _fallback_subtitle_timing(script),
+            "thumbnail_strategy": _fallback_thumbnail_strategy(topic, normalized_language),
+            "title_options": _fallback_title_options(topic, normalized_language),
+            "engagement_score": 78,
+            "retention_score": 74,
+            "viral_angle": _fallback_viral_angle(topic, normalized_language),
+            "mode": "custom",
+        },
+        include_video_prompt=include_video_prompt,
+        topic=topic,
+    )
 
 
 def normalize_language(language: str | None) -> str:
@@ -296,15 +310,30 @@ def _generate_custom_with_llm(topic: str, language: str, include_video_prompt: b
     client = OpenAI(api_key=settings.openai_api_key)
     language_label = SUPPORTED_LANGUAGES[language]
     prompt = f"""
-Create a clean YouTube-ready sports explainer in {language_label} about: {topic}
+You are an AI sports media production studio.
+
+Create a deeply engaging YouTube-ready sports package in {language_label} about: {topic}
+
+Return strict JSON with these keys only:
+title, script, hook, research, scene_breakdown, subtitle_timing, thumbnail_strategy, title_options, video_prompt, viral_angle, engagement_score, retention_score
 
 Rules:
-- Keep the script simple and natural.
-- Start with a strong hook.
-- Use short conversational sentences.
-- End with a summary and audience engagement line.
-- Avoid robotic tone.
-Return strict JSON with keys: title, script, language, language_label, video_prompt
+- Sound human, emotional, cinematic, and conversational.
+- Do not invent scores, stats, quotes, or injuries.
+- The first 5 seconds must create curiosity.
+- Script structure: hook, context, main story, emotional build-up, ending, CTA.
+- Script should be visually mappable scene by scene.
+- research must be an array of 4 to 6 concise verified-angle bullets about what matters in the story.
+- scene_breakdown must be an array of 5 to 8 objects with keys:
+  scene_number, narration, visual, transition, motion, emotion, duration_seconds
+- subtitle_timing must be an array of 5 to 8 objects with keys:
+  start, end, text, emphasis
+- thumbnail_strategy must be an object with keys:
+  text, layout, focal_subject, color_strategy, emotion
+- title_options must be an array of 3 strong YouTube title options.
+- viral_angle must explain why fans will care right now.
+- engagement_score and retention_score must be integers from 1 to 100.
+- video_prompt must describe a production-ready visual brief.
 """.strip()
     def operation() -> dict[str, object]:
         response = client.responses.create(model=settings.openai_model, input=prompt)
@@ -313,9 +342,7 @@ Return strict JSON with keys: title, script, language, language_label, video_pro
         payload = json.loads(match.group(0) if match else text)
         payload["language"] = language
         payload["language_label"] = language_label
-        if include_video_prompt and not payload.get("video_prompt"):
-            payload["video_prompt"] = f"Professional sports explainer visuals for {topic}"
-        return payload
+        return _normalize_custom_script_payload(payload, include_video_prompt=include_video_prompt, topic=topic)
 
     def should_retry(exc: Exception, attempt: int) -> bool:
         del attempt
@@ -436,3 +463,213 @@ def _extract_json_object(raw_text: str) -> dict[str, object]:
     if match:
         text = match.group(0)
     return json.loads(text)
+
+
+def _normalize_custom_script_payload(
+    payload: dict[str, object],
+    *,
+    include_video_prompt: bool,
+    topic: str | None = None,
+) -> dict[str, object]:
+    script = str(payload.get("script", "")).strip()
+    title = str(payload.get("title", "")).strip() or f"{(topic or 'Sports Topic').strip()[:70]} Breakdown"
+    language = normalize_language(str(payload.get("language", "")).strip() or None)
+    language_label = SUPPORTED_LANGUAGES[language]
+    hook = str(payload.get("hook", "")).strip() or (_split_sentences(script)[0] if script else "")
+    research = [str(item).strip() for item in payload.get("research", []) if str(item).strip()]
+    scene_breakdown = _normalize_scene_breakdown(payload.get("scene_breakdown"), script, language)
+    subtitle_timing = _normalize_subtitle_timing(payload.get("subtitle_timing"), scene_breakdown)
+    thumbnail_strategy = _normalize_thumbnail_strategy(payload.get("thumbnail_strategy"), topic or title, language)
+    title_options = [str(item).strip() for item in payload.get("title_options", []) if str(item).strip()][:3]
+    if not title_options:
+        title_options = _fallback_title_options(topic or title, language)
+    video_prompt = str(payload.get("video_prompt", "")).strip()
+    if include_video_prompt and not video_prompt:
+        video_prompt = f"Create a cinematic sports explainer with accurate visuals, emotional pacing, subtitles, and thumbnail-ready hero frames for {topic or title}."
+    engagement_score = _bounded_score(payload.get("engagement_score"), default=78)
+    retention_score = _bounded_score(payload.get("retention_score"), default=74)
+    viral_angle = str(payload.get("viral_angle", "")).strip() or _fallback_viral_angle(topic or title, language)
+
+    return {
+        "title": title,
+        "script": script,
+        "hook": hook,
+        "research": research or _fallback_research_points(topic or title, language),
+        "scene_breakdown": scene_breakdown,
+        "subtitle_timing": subtitle_timing,
+        "thumbnail_strategy": thumbnail_strategy,
+        "title_options": title_options,
+        "video_prompt": video_prompt,
+        "viral_angle": viral_angle,
+        "engagement_score": engagement_score,
+        "retention_score": retention_score,
+        "language": language,
+        "language_label": language_label,
+        "mode": "custom",
+    }
+
+
+def _normalize_scene_breakdown(value: object, script: str, language: str) -> list[dict[str, object]]:
+    if isinstance(value, list):
+        normalized: list[dict[str, object]] = []
+        for index, item in enumerate(value, start=1):
+            if not isinstance(item, dict):
+                continue
+            narration = str(item.get("narration", "")).strip()
+            if not narration:
+                continue
+            normalized.append(
+                {
+                    "scene_number": int(item.get("scene_number", index)),
+                    "narration": narration,
+                    "visual": str(item.get("visual", "")).strip() or narration,
+                    "transition": str(item.get("transition", "")).strip() or "smooth_cut",
+                    "motion": str(item.get("motion", "")).strip() or "ken_burns",
+                    "emotion": str(item.get("emotion", "")).strip() or "focused",
+                    "duration_seconds": max(float(item.get("duration_seconds", 4.0)), 1.5),
+                }
+            )
+        if normalized:
+            return normalized[:8]
+    return _fallback_scene_breakdown(script, language)
+
+
+def _normalize_subtitle_timing(value: object, scene_breakdown: list[dict[str, object]]) -> list[dict[str, object]]:
+    if isinstance(value, list):
+        normalized: list[dict[str, object]] = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text", "")).strip()
+            if not text:
+                continue
+            start = round(max(float(item.get("start", 0.0)), 0.0), 2)
+            end = round(max(float(item.get("end", start + 1.5)), start + 0.5), 2)
+            normalized.append(
+                {
+                    "start": start,
+                    "end": end,
+                    "text": text,
+                    "emphasis": str(item.get("emphasis", "")).strip() or text.split()[0].upper(),
+                }
+            )
+        if normalized:
+            return normalized[:8]
+
+    cursor = 0.0
+    fallback: list[dict[str, object]] = []
+    for item in scene_breakdown:
+        duration = float(item.get("duration_seconds", 4.0))
+        text = str(item.get("narration", "")).strip()
+        fallback.append(
+            {
+                "start": round(cursor, 2),
+                "end": round(cursor + duration, 2),
+                "text": text,
+                "emphasis": str(item.get("emotion", "focused")).upper(),
+            }
+        )
+        cursor += duration
+    return fallback[:8]
+
+
+def _normalize_thumbnail_strategy(value: object, topic: str, language: str) -> dict[str, str]:
+    if isinstance(value, dict):
+        return {
+            "text": str(value.get("text", "")).strip() or ("షాక్ న్యూస్" if language == "te" else "SPORTS SHOCK"),
+            "layout": str(value.get("layout", "")).strip() or "Hero face on left, explosive action on right, bold text at bottom.",
+            "focal_subject": str(value.get("focal_subject", "")).strip() or topic,
+            "color_strategy": str(value.get("color_strategy", "")).strip() or "High contrast red, yellow, and white over a dark sports backdrop.",
+            "emotion": str(value.get("emotion", "")).strip() or "urgent",
+        }
+    return _fallback_thumbnail_strategy(topic, language)
+
+
+def _bounded_score(value: object, *, default: int) -> int:
+    try:
+        score = int(float(value))
+    except Exception:
+        return default
+    return max(1, min(score, 100))
+
+
+def _fallback_research_points(topic: str, language: str) -> list[str]:
+    if language == "en":
+        return [
+            f"The core story around {topic} needs a clear timeline so viewers instantly understand what changed.",
+            "Fans care most about the competitive stakes, not just the headline.",
+            "Recent form, pressure, and momentum are the strongest emotional levers for retention.",
+            "Any controversy, injury doubt, or tactical twist should be framed carefully unless verified.",
+            "The payoff should answer what this means next for the player, team, or tournament.",
+        ]
+    return [
+        f"{topic} story lo actual ga em jarigindo clear timeline tho cheppali.",
+        "Headline kanna match stakes mariyu fans reaction ekkuva important.",
+        "Recent form, pressure, momentum valla story ki emotion perugutundi.",
+        "Controversy leda injury angle unte verify ayina vati matrame vadali.",
+        "End lo next impact enti ane point clear ga undali.",
+    ]
+
+
+def _fallback_scene_breakdown(script: str, language: str) -> list[dict[str, object]]:
+    del language
+    lines = _split_sentences(script)[:6] or ([script] if script else [])
+    emotions = ["shock", "focused", "focused", "hype", "triumph", "resolve"]
+    visuals = [
+        "breaking sports intro with headline graphics",
+        "player close-up or team training footage",
+        "match action or tactical replay visual",
+        "crowd reaction and scoreboard overlay",
+        "celebration or pressure moment montage",
+        "closing hero frame with channel branding",
+    ]
+    scenes: list[dict[str, object]] = []
+    for index, line in enumerate(lines, start=1):
+        scenes.append(
+            {
+                "scene_number": index,
+                "narration": line,
+                "visual": visuals[min(index - 1, len(visuals) - 1)],
+                "transition": "cold_open_flash" if index == 1 else ("slow_fade_out" if index == len(lines) else "smooth_cut"),
+                "motion": "fast_push_in" if index == 1 else ("parallax_pan" if index % 2 == 0 else "ken_burns"),
+                "emotion": emotions[min(index - 1, len(emotions) - 1)],
+                "duration_seconds": 3.5 if index == 1 else 4.0,
+            }
+        )
+    return scenes
+
+
+def _fallback_subtitle_timing(script: str) -> list[dict[str, object]]:
+    scenes = _fallback_scene_breakdown(script, "en")
+    return _normalize_subtitle_timing([], scenes)
+
+
+def _fallback_thumbnail_strategy(topic: str, language: str) -> dict[str, str]:
+    return {
+        "text": "షాక్ న్యూస్" if language == "te" else "SPORTS SHOCK",
+        "layout": "Emotional face on one side, decisive sports action on the other, oversized text in the lower third.",
+        "focal_subject": topic,
+        "color_strategy": "Use dark contrast with red, yellow, and white accents so the thumbnail stays readable on mobile.",
+        "emotion": "high urgency",
+    }
+
+
+def _fallback_title_options(topic: str, language: str) -> list[str]:
+    base = topic.strip() or "Sports Story"
+    if language == "te":
+        return [
+            f"{base}: Fans Ni Shock Chesina Twist",
+            f"{base}: Match Story Lo Biggest Turning Point",
+            f"{base}: Ippude Andaru Matladutunna Reason",
+        ]
+    return [
+        f"{base}: The Twist Fans Did Not See Coming",
+        f"What Really Changed In {base}",
+        f"{base}: The Story Everyone Is Talking About",
+    ]
+
+
+def _fallback_viral_angle(topic: str, language: str) -> str:
+    if language == "te":
+        return f"{topic} lo immediate emotion, debate, mariyu what-happens-next curiosity strong ga untayi."
+    return f"{topic} has built-in fan emotion, debate potential, and a strong what-happens-next hook."

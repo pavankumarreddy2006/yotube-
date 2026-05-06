@@ -79,6 +79,7 @@ def build_render_plan(
 
     for index, cue in enumerate(cues, start=1):
         query = visuals[index - 1] if index - 1 < len(visuals) else cue.text
+        emotion = _emotion_from_text(cue.text)
         scenes.append(
             ScenePlan(
                 index=index,
@@ -90,6 +91,11 @@ def build_render_plan(
                 subtitle=cue,
                 preferred_image=images[index - 1] if index - 1 < len(images) else "",
                 keywords=_keywords_from_text(cue.text),
+                transition=_transition_for_scene(index, len(cues), emotion),
+                motion_effect=_motion_for_scene(index, emotion),
+                visual_style=_visual_style_for_query(query, emotion),
+                emotion=emotion,
+                overlay_text=_overlay_text(cue.text),
             )
         )
 
@@ -114,3 +120,60 @@ def _keywords_from_text(text: str) -> list[str]:
         if word not in unique:
             unique.append(word)
     return unique[:5]
+
+
+def _emotion_from_text(text: str) -> str:
+    lowered = text.lower()
+    if any(term in lowered for term in ["shock", "stun", "upset", "dramatic", "controvers", "collapse"]):
+        return "shock"
+    if any(term in lowered for term in ["win", "victory", "celebrat", "lifted", "champion"]):
+        return "triumph"
+    if any(term in lowered for term in ["injury", "miss", "doubt", "setback", "out"]):
+        return "concern"
+    if any(term in lowered for term in ["transfer", "rumor", "deadline", "talks"]):
+        return "speculation"
+    return "focused"
+
+
+def _transition_for_scene(index: int, total: int, emotion: str) -> str:
+    if index == 1:
+        return "cold_open_flash"
+    if index == total:
+        return "slow_fade_out"
+    if emotion in {"shock", "triumph"}:
+        return "impact_whip_pan"
+    if emotion == "concern":
+        return "dip_to_black"
+    return "smooth_cut"
+
+
+def _motion_for_scene(index: int, emotion: str) -> str:
+    if index == 1:
+        return "fast_push_in"
+    if emotion == "shock":
+        return "punch_zoom"
+    if emotion == "triumph":
+        return "parallax_pan"
+    if emotion == "concern":
+        return "slow_drift"
+    return "ken_burns"
+
+
+def _visual_style_for_query(query: str, emotion: str) -> str:
+    lowered = query.lower()
+    if "crowd" in lowered or "stadium" in lowered:
+        return "cinematic crowd atmosphere"
+    if any(term in lowered for term in ["close-up", "portrait", "reaction"]):
+        return "emotional player close-up"
+    if any(term in lowered for term in ["scoreboard", "stat", "table"]):
+        return "broadcast data overlay"
+    if emotion == "shock":
+        return "high-contrast breaking news"
+    return "sports documentary highlight"
+
+
+def _overlay_text(text: str) -> str:
+    words = re.findall(r"\b[\w'-]+\b", text)
+    if not words:
+        return ""
+    return " ".join(words[:4]).upper()

@@ -42,6 +42,11 @@ class ScenePlan:
     subtitle: SubtitleCue
     preferred_image: str = ""
     keywords: list[str] = field(default_factory=list)
+    transition: str = "straight_cut"
+    motion_effect: str = "slow_push_in"
+    visual_style: str = "broadcast highlight"
+    emotion: str = "focused"
+    overlay_text: str = ""
 
 
 @dataclass
